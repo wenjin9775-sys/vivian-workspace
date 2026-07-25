@@ -1,19 +1,18 @@
-# Render 一键部署配置
-# 用法：Render 控制台 → New + → Web Service → 连接本仓库（或「Deploy from render.yaml」）
-# 零依赖 Node 服务，同时托管网页端(PWA)与 API，数据存持久化磁盘，重启不丢。
+# Render 部署配置（免费档 + MongoDB Atlas 持久化，无需持久化磁盘）
+# 用法：Render 控制台 → New + → Blueprint → 连接本仓库（自动读取本文件）
 services:
   - type: web
     name: vivian-workspace
     runtime: node
     plan: free
-    buildCommand: ""
+    buildCommand: npm install
     startCommand: node server.js
     envVars:
       - key: PORT
         value: "10000"
       - key: ALLOW_ORIGIN
         value: "*"
-    disk:
-      name: vivian-data
-      mountPath: /app/server-data
-      sizeGB: 1
+      - key: MONGODB_URI
+        # 在 Render 环境变量里填入你的 MongoDB Atlas 连接串（mongodb+srv://...）
+        # 部署前务必先在 Render 控制台把此环境变量填好，否则会退回本地文件存储（数据不持久）
+        sync: false

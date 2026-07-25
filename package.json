@@ -1,11 +1,14 @@
 {
   "name": "vivian-workspace",
   "version": "1.0.0",
-  "description": "Vivian 的个人工作台后端（零依赖 Node），含账号登录、数据/图片云端同步",
+  "description": "Vivian 的个人工作台后端（Node），含账号登录、数据/图片云端同步，支持 MongoDB 或本地文件存储",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"
+  },
+  "dependencies": {
+    "mongodb": "^6.8.0"
   },
   "engines": {
     "node": ">=18"

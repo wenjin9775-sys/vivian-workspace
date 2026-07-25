@@ -1,7 +1,9 @@
 /* =========================================================================
-   Vivian 工作台 —— 零依赖 Node 后端
+   Vivian 工作台 —— Node 后端
    功能：静态托管 + 账号(register/login) + 数据同步(state) + 图片同步(image)
-   仅使用 Node 内置模块，无需 npm install。
+   存储策略：
+     - 若设置了环境变量 MONGODB_URI → 使用 MongoDB（推荐，云端持久化）
+     - 否则 → 退回本地文件存储 server-data/（适合本机/隧道临时用）
    运行：node server.js  （默认端口 8770，可用 PORT 环境变量覆盖）
    ========================================================================= */
 "use strict";
@@ -17,27 +19,127 @@ const PORT = process.env.PORT || 8770;
 
 fs.mkdirSync(DATA, { recursive: true });
 
-/* ---------- 用户存储 ---------- */
-function loadUsers() {
+/* ============ 存储抽象层 ============ */
+const USE_MONGO = !!process.env.MONGODB_URI;
+let db = null; // mongodb 句柄
+const safeId = (id) => typeof id === "string" && /^[A-Za-z0-9._-]+$/.test(id);
+
+async function initStorage() {
+  if (!USE_MONGO) {
+    console.log("ℹ️  未设置 MONGODB_URI，使用本地文件存储（server-data/）");
+    return;
+  }
+  const { MongoClient } = require("mongodb");
+  const client = new MongoClient(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 15000 });
+  await client.connect();
+  db = client.db("vivian");
+  await db.collection("users").createIndex({ username: 1 }, { unique: true });
+  console.log("✅ 已连接 MongoDB");
+  await migrateFromFiles();
+}
+
+// 首次连接且库为空时，把本机已有的数据迁进去，避免丢数据
+async function migrateFromFiles() {
+  let local = {};
+  try { local = JSON.parse(fs.readFileSync(USERS_FILE, "utf8")); } catch (e) {}
+  if (!local || !Object.keys(local).length) return;
+  const count = await db.collection("users").estimatedDocumentCount();
+  if (count > 0) return; // 已有人，不覆盖
+  for (const name in local) {
+    await db.collection("users").updateOne(
+      { username: name },
+      { $set: { username: name, salt: local[name].salt, hash: local[name].hash, token: local[name].token } },
+      { upsert: true }
+    );
+    const sf = path.join(DATA, name, "state.json");
+    try { const st = JSON.parse(fs.readFileSync(sf, "utf8")); await db.collection("states").updateOne({ _id: name }, { $set: { _id: name, state: st } }, { upsert: true }); } catch (e) {}
+    const imgDir = path.join(DATA, name, "images");
+    try {
+      for (const f of fs.readdirSync(imgDir)) {
+        if (safeId(f)) {
+          const d = fs.readFileSync(path.join(imgDir, f), "utf8");
+          await db.collection("images").updateOne({ _id: name + ":" + f }, { $set: { _id: name + ":" + f, username: name, id: f, data: d } }, { upsert: true });
+        }
+      }
+    } catch (e) {}
+  }
+  console.log("✅ 已从本地 server-data/ 迁移历史数据到 MongoDB");
+}
+
+/* ---- 用户 ---- */
+function loadUsersSync() {
   try { return JSON.parse(fs.readFileSync(USERS_FILE, "utf8")); } catch (e) { return {}; }
 }
-function saveUsers(u) { fs.writeFileSync(USERS_FILE, JSON.stringify(u, null, 2)); }
+function saveUsersSync(u) { fs.writeFileSync(USERS_FILE, JSON.stringify(u, null, 2)); }
+async function loadUsers() {
+  if (USE_MONGO) {
+    const arr = await db.collection("users").find({}).toArray();
+    const map = {};
+    for (const u of arr) map[u.username] = { salt: u.salt, hash: u.hash, token: u.token };
+    return map;
+  }
+  return loadUsersSync();
+}
+async function saveUsers(u) {
+  if (USE_MONGO) {
+    for (const name in u) {
+      await db.collection("users").updateOne(
+        { username: name },
+        { $set: { username: name, salt: u[name].salt, hash: u[name].hash, token: u[name].token } },
+        { upsert: true }
+      );
+    }
+    return;
+  }
+  saveUsersSync(u);
+}
 function userDir(name) {
   const d = path.join(DATA, name);
   fs.mkdirSync(d, { recursive: true });
   fs.mkdirSync(path.join(d, "images"), { recursive: true });
   return d;
 }
-const safeId = (id) => typeof id === "string" && /^[A-Za-z0-9._-]+$/.test(id);
+
+/* ---- 状态 ---- */
+async function loadState(name) {
+  if (USE_MONGO) {
+    const doc = await db.collection("states").findOne({ _id: name });
+    return doc ? doc.state : {};
+  }
+  try { return JSON.parse(fs.readFileSync(path.join(userDir(name), "state.json"), "utf8")); } catch (e) { return {}; }
+}
+async function saveState(name, st) {
+  if (USE_MONGO) {
+    await db.collection("states").updateOne({ _id: name }, { $set: { _id: name, state: st } }, { upsert: true });
+    return;
+  }
+  fs.writeFileSync(path.join(userDir(name), "state.json"), JSON.stringify(st, null, 0));
+}
+
+/* ---- 图片 ---- */
+async function saveImage(name, id, data) {
+  if (USE_MONGO) {
+    await db.collection("images").updateOne({ _id: name + ":" + id }, { $set: { _id: name + ":" + id, username: name, id, data } }, { upsert: true });
+    return;
+  }
+  fs.writeFileSync(path.join(userDir(name), "images", id), data);
+}
+async function loadImage(name, id) {
+  if (USE_MONGO) {
+    const doc = await db.collection("images").findOne({ _id: name + ":" + id });
+    return doc ? doc.data : null;
+  }
+  try { return fs.readFileSync(path.join(userDir(name), "images", id), "utf8"); } catch (e) { return null; }
+}
+
+/* ============ 工具 ============ */
 const hashPassword = (pw, salt) => crypto.scryptSync(pw, salt, 64).toString("hex");
 const newToken = () => crypto.randomBytes(24).toString("hex");
 
-/* ---------- 工具 ---------- */
 function send(res, code, obj) {
   res.writeHead(code, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(obj));
 }
-// 允许跨域（网页部署在别处 / 微信小程序通过域名调用都需要）
 const ALLOW_ORIGIN = process.env.ALLOW_ORIGIN || "*";
 function cors(res) {
   res.setHeader("Access-Control-Allow-Origin", ALLOW_ORIGIN);
@@ -53,12 +155,12 @@ function readBody(req) {
     req.on("error", rej);
   });
 }
-function authUser(req) {
+async function authUser(req) {
   const h = req.headers["authorization"] || "";
   const m = h.match(/^Bearer\s+(.+)$/);
   if (!m) return null;
   const token = m[1];
-  const users = loadUsers();
+  const users = await loadUsers();
   for (const name in users) if (users[name].token === token) return name;
   return null;
 }
@@ -70,16 +172,14 @@ const MIME = {
   ".png": "image/png", ".jpg": "image/jpeg", ".ico": "image/x-icon"
 };
 
-/* ---------- 服务器 ---------- */
+/* ============ 服务器 ============ */
 const server = http.createServer(async (req, res) => {
   cors(res);
-  // 预检请求直接放行
   if (req.method === "OPTIONS") { res.writeHead(204); return res.end(); }
 
   const u = new URL(req.url, "http://localhost");
   const p = u.pathname;
 
-  /* ---- API ---- */
   if (p.startsWith("/api/")) {
     try {
       const body = (req.method === "POST" || req.method === "PUT") ? await readBody(req).catch(() => "{}") : null;
@@ -89,57 +189,56 @@ const server = http.createServer(async (req, res) => {
         const name = (json.username || "").trim();
         const pw = json.password || "";
         if (name.length < 2 || pw.length < 4) return send(res, 400, { error: "用户名至少 2 位，密码至少 4 位" });
-        const users = loadUsers();
+        const users = await loadUsers();
         if (users[name]) return send(res, 409, { error: "用户名已存在" });
         const salt = crypto.randomBytes(16).toString("hex");
         users[name] = { salt, hash: hashPassword(pw, salt), token: newToken() };
-        saveUsers(users); userDir(name);
+        await saveUsers(users);
+        if (!USE_MONGO) userDir(name);
         return send(res, 200, { token: users[name].token, username: name });
       }
 
       if (p === "/api/login" && req.method === "POST") {
         const name = (json.username || "").trim();
         const pw = json.password || "";
-        const users = loadUsers();
+        const users = await loadUsers();
         const uu = users[name];
         if (!uu || uu.hash !== hashPassword(pw, uu.salt)) return send(res, 401, { error: "用户名或密码错误" });
-        uu.token = newToken(); saveUsers(users);
+        uu.token = newToken(); users[name] = uu; await saveUsers(users);
         return send(res, 200, { token: uu.token, username: name });
       }
 
       if (p === "/api/state" && req.method === "GET") {
-        const un = authUser(req); if (!un) return send(res, 401, { error: "未登录" });
-        const f = path.join(userDir(un), "state.json");
-        let st = {}; try { st = JSON.parse(fs.readFileSync(f, "utf8")); } catch (e) {}
-        return send(res, 200, { state: st });
+        const un = await authUser(req); if (!un) return send(res, 401, { error: "未登录" });
+        return send(res, 200, { state: await loadState(un) });
       }
 
       if (p === "/api/state" && req.method === "PUT") {
-        const un = authUser(req); if (!un) return send(res, 401, { error: "未登录" });
-        fs.writeFileSync(path.join(userDir(un), "state.json"), JSON.stringify(json.state || {}, null, 0));
+        const un = await authUser(req); if (!un) return send(res, 401, { error: "未登录" });
+        await saveState(un, json.state || {});
         return send(res, 200, { ok: true });
       }
 
       if (p === "/api/image" && req.method === "POST") {
-        const un = authUser(req); if (!un) return send(res, 401, { error: "未登录" });
+        const un = await authUser(req); if (!un) return send(res, 401, { error: "未登录" });
         const id = json.id; const data = json.data;
         if (!safeId(id) || typeof data !== "string") return send(res, 400, { error: "invalid" });
-        fs.writeFileSync(path.join(userDir(un), "images", id), data);
+        await saveImage(un, id, data);
         return send(res, 200, { ok: true });
       }
 
       const m = p.match(/^\/api\/image\/(.+)$/);
       if (m && req.method === "GET") {
-        const un = authUser(req); if (!un) return send(res, 401, { error: "未登录" });
+        const un = await authUser(req); if (!un) return send(res, 401, { error: "未登录" });
         const id = m[1]; if (!safeId(id)) return send(res, 400, { error: "invalid" });
-        const f = path.join(userDir(un), "images", id);
-        try { const d = fs.readFileSync(f, "utf8"); res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" }); return res.end(d); }
-        catch (e) { res.writeHead(404); return res.end("not found"); }
+        const d = await loadImage(un, id);
+        if (d == null) { res.writeHead(404); return res.end("not found"); }
+        res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" }); return res.end(d);
       }
 
       return send(res, 404, { error: "not found" });
     } catch (e) {
-      return send(res, 500, { error: String(e && e.message || e) });
+      return send(res, 500, { error: String((e && e.message) || e) });
     }
   }
 
@@ -155,7 +254,12 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-server.listen(PORT, "0.0.0.0", () => {
-  console.log("✅ Vivian 工作台后端已启动，监听 0.0.0.0:" + PORT + "（对外可访问）");
-  console.log("   本地：http://127.0.0.1:" + PORT + "  局域网：http://<本机IP>:" + PORT);
+initStorage().then(() => {
+  server.listen(PORT, "0.0.0.0", () => {
+    console.log("✅ Vivian 工作台后端已启动，监听 0.0.0.0:" + PORT + "（对外可访问）");
+    console.log("   存储：" + (USE_MONGO ? "MongoDB" : "本地文件") + " | 本地：http://127.0.0.1:" + PORT);
+  });
+}).catch((e) => {
+  console.error("❌ 存储初始化失败：", e && e.message);
+  process.exit(1);
 });
