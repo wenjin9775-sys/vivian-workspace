@@ -1,0 +1,19 @@
+# Render 一键部署配置
+# 用法：Render 控制台 → New + → Web Service → 连接本仓库（或「Deploy from render.yaml」）
+# 零依赖 Node 服务，同时托管网页端(PWA)与 API，数据存持久化磁盘，重启不丢。
+services:
+  - type: web
+    name: vivian-workspace
+    runtime: node
+    plan: free
+    buildCommand: ""
+    startCommand: node server.js
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: ALLOW_ORIGIN
+        value: "*"
+    disk:
+      name: vivian-data
+      mountPath: /app/server-data
+      sizeGB: 1

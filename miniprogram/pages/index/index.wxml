@@ -1,0 +1,71 @@
+<view class="card">
+  <view class="row" style="justify-content:space-between">
+    <view class="title">👋 {{username}}</view>
+    <view class="chip" bindtap="onLogout">退出</view>
+  </view>
+  <view class="row" style="flex-wrap:wrap;gap:12rpx;margin-top:8rpx">
+    <view class="mini"><b>💰{{summary.monthExp}}</b><text class="muted"> 本月开销</text></view>
+    <view class="mini"><b>📝{{summary.vocab}}</b><text class="muted"> 单词</text></view>
+    <view class="mini"><b>📚{{summary.grammarPct}}%</b><text class="muted"> 语法</text></view>
+    <view class="mini"><b>🧴{{summary.skinWeek}}</b><text class="muted"> 护肤/周</text></view>
+  </view>
+</view>
+
+<!-- To Do -->
+<view class="card">
+  <view class="title">✅ 今天 To Do（{{todoToday.length}}）</view>
+  <view wx:for="{{todoToday}}" wx:key="id" class="row" style="justify-content:space-between">
+    <view class="row" style="flex:1">
+      <checkbox checked="{{item.done}}" bindtap="toggleTodo" data-id="{{item.id}}" />
+      <text style="{{item.done?'text-decoration:line-through;color:#9a8a90':''}}">{{item.text}}</text>
+    </view>
+    <text class="muted" bindtap="delTodo" data-id="{{item.id}}">✕</text>
+  </view>
+  <input class="input" placeholder="加一项今天的任务" value="{{newTodo}}" bindinput="onNewTodo" />
+  <button class="btn ghost" bindtap="addTodo">+ 添加</button>
+</view>
+
+<!-- 花销 -->
+<view class="card">
+  <view class="title">💸 花销记录</view>
+  <view wx:for="{{expenses}}" wx:key="id" class="row" style="justify-content:space-between">
+    <text>{{item.date}} · {{item.category}} · {{item.note}}</text>
+    <text>¥{{item.amount}} <text class="muted" bindtap="delExp" data-id="{{item.id}}">✕</text></text>
+  </view>
+  <input class="input" placeholder="金额" type="digit" value="{{newExp.amount}}" bindinput="onExpAmount" />
+  <input class="input" placeholder="类别（如 餐饮）" value="{{newExp.category}}" bindinput="onExpCat" />
+  <input class="input" placeholder="备注" value="{{newExp.note}}" bindinput="onExpNote" />
+  <button class="btn ghost" bindtap="addExp">+ 记录花销</button>
+</view>
+
+<!-- 语法进度 -->
+<view class="card">
+  <view class="title">📚 韩语语法进度</view>
+  <view wx:for="{{books}}" wx:key="id" style="margin-bottom:16rpx">
+    <view class="row" style="justify-content:space-between">
+      <text style="font-weight:700">{{item.name}}</text>
+      <text class="chip">{{item.done}}/{{item.total}} · {{item.pct}}%</text>
+    </view>
+    <view class="bar"><i style="width:{{item.pct}}%"></i></view>
+    <view class="row" style="flex-wrap:wrap;gap:10rpx;margin-top:10rpx">
+      <view wx:for="{{item.chapters}}" wx:for-item="ch" wx:key="id"
+            class="chip" style="{{ch.learned?'background:#ff8fb1;color:#fff':''}}"
+            bindtap="toggleChapter" data-bid="{{item.id}}" data-cid="{{ch.id}}">
+        {{ch.title}}{{ch.learned?' ✓':''}}
+      </view>
+    </view>
+  </view>
+</view>
+
+<!-- 护肤 -->
+<view class="card">
+  <view class="title">🧴 每日护肤（今日 {{skinDone}}/{{skinTotal}}）</view>
+  <view class="bar"><i style="width:{{skinPct}}%"></i></view>
+  <view class="row" style="flex-wrap:wrap;gap:12rpx;margin-top:14rpx">
+    <view wx:for="{{skincare}}" wx:key="id"
+          class="chip" style="padding:12rpx 20rpx;{{item.doneToday?'background:#ff8fb1;color:#fff':''}}"
+          bindtap="toggleSkin" data-id="{{item.id}}">
+      {{item.name}}{{item.doneToday?' ✓':''}}
+    </view>
+  </view>
+</view>

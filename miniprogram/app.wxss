@@ -1,0 +1,36 @@
+page {
+  background: #fff5f8;
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #4a3b42;
+}
+.btn {
+  background: #ff8fb1;
+  color: #fff;
+  border-radius: 12rpx;
+  padding: 18rpx 0;
+  text-align: center;
+  font-weight: 700;
+  border: none;
+}
+.btn.ghost { background: #ffe1ec; color: #e75f8a; }
+.input {
+  background: #fff;
+  border: 1rpx solid #ffe1ec;
+  border-radius: 12rpx;
+  padding: 16rpx 20rpx;
+  margin: 10rpx 0;
+  font-size: 28rpx;
+}
+.card {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 24rpx;
+  margin: 20rpx;
+  box-shadow: 0 8rpx 24rpx rgba(255,143,177,.15);
+}
+.muted { color: #9a8a90; font-size: 24rpx; }
+.title { font-weight: 800; font-size: 32rpx; margin-bottom: 12rpx; }
+.row { display: flex; align-items: center; gap: 12rpx; }
+.bar { height: 14rpx; border-radius: 14rpx; background: #ffe1ec; overflow: hidden; margin-top: 10rpx; }
+.bar > i { display: block; height: 100%; background: linear-gradient(135deg,#ff8fb1,#e75f8a); }
+.chip { background: #ffe1ec; color: #e75f8a; border-radius: 20rpx; padding: 4rpx 16rpx; font-size: 22rpx; }

@@ -1,0 +1,14 @@
+{
+  "pages": [
+    "pages/login/login",
+    "pages/index/index"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#ff8fb1",
+    "navigationBarTitleText": "Vivian 的工作台",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#fff5f8"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

@@ -1,0 +1,6 @@
+.mini {
+  background: #fff8fb; border: 1rpx solid #ffe1ec;
+  border-radius: 16rpx; padding: 12rpx 18rpx; font-size: 26rpx;
+}
+.mini b { font-size: 30rpx; }
+checkbox { transform: scale(.8); }
