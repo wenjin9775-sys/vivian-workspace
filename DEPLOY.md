@@ -32,13 +32,24 @@
 
 ### 方案 A：Render（免费、最简单，推荐）
 1. 注册 https://render.com （用 GitHub 登录）。
-2. 新建 **Web Service**，连接你存放本目录的 Git 仓库（或手动上传）。
-3. 设置：
-   - Build Command：留空（无需安装依赖）
-   - Start Command：`node server.js`
-   - 环境变量：`PORT` = `10000`（Render 用这个；代码已读环境变量）
-4. 部署完成后会得到一个 `https://xxxx.onrender.com` 的公网地址。
-5. ⚠️ 免费版空闲会休眠，第一次访问可能慢几秒，属正常。
+2. **New + → Blueprint**，连接本仓库 `vivian-workspace`（仓库里的 `render.yaml` 会被自动读取）。
+3. 在环境变量里务必填上 **`MONGODB_URI`**（见下方「① 准备 MongoDB Atlas 数据库」），否则服务启动会失败。
+   - `render.yaml` 已设 `buildCommand: npm install`、`startCommand: node server.js`、`PORT=10000`。
+4. 点 Apply 部署，完成后得到 `https://vivian-workspace.onrender.com` 公网地址。
+5. ⚠️ 免费版空闲会休眠，第一次访问可能慢 30–60 秒，属正常；数据存在 MongoDB，重启不丢。
+
+> 若之前 Blueprint 因「disks not supported」报错过，请先在 Render 删掉那个失败的服务，再重新走上面的 Blueprint 流程（现在 `render.yaml` 已无 disk）。
+
+### ① 准备 MongoDB Atlas 数据库（免费，数据永久保存）
+Render 免费档**不支持持久化磁盘**，所以用户数据改存 MongoDB Atlas 免费集群（M0，永久、512MB 足够个人用）：
+1. 打开 https://www.mongodb.com/atlas 注册（可用 Google/GitHub 登录）。
+2. **Build a Database** → 选 **M0 Sandbox（免费）** → 选区域（离你近即可，如 Singapore）→ Create。
+3. 创建**数据库用户**：用户名 + 密码（**记住密码**，连接串要用），角色默认 `readWriteAnyDatabase`。
+4. **Network Access** → Add IP Address → 选 **Allow access from anywhere（0.0.0.0/0）**（Render 的出口 IP 不固定，必须允许全部）。
+5. 回到 Database → Connect → **Drivers** → 复制 **连接串**，形如：
+   `mongodb+srv://<用户名>:<密码>@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority`
+   把其中的 `<密码>` 换成你刚设的密码。
+6. 把这个完整连接串填到 Render 服务的环境变量 **`MONGODB_URI`** 里。
 
 ### 方案 B：Railway
 1. 注册 https://railway.app ，新建 Project → Deploy from GitHub/Docker。
@@ -61,8 +72,9 @@ docker run -d -p 8770:8770 -v $(pwd)/server-data:/app/server-data vivian-workspa
 ### 关键环境变量
 | 变量 | 说明 | 默认 |
 |------|------|------|
-| `PORT` | 监听端口 | `8770` |
-| `ALLOW_ORIGIN` | CORS 允许的源，`*` 为任意（生产可改成你的前端域名） | `*` |
+| `PORT` | 监听端口（Render 用 10000） | `8770` |
+| `ALLOW_ORIGIN` | CORS 允许的源，`*` 为任意 | `*` |
+| `MONGODB_URI` | **必填**：MongoDB 连接串；不填则退回本地文件存储（重启丢数据，仅适合本机/隧道） | 无 |
 
 ---
 
@@ -91,9 +103,9 @@ const API = "https://vivian.works";
 ---
 
 ## 四、数据说明
-- 用户数据存于运行目录下的 `server-data/<用户名>/`，含 `state.json` 与 `images/`。
-- 用 Docker / 云服务时务必把 `server-data` 挂为**持久卷**，否则重启丢数据。
-- 密码用 scrypt 加盐哈希，token 存于 `users.json`，传输走 HTTPS 才安全。
+- **云端部署（设了 `MONGODB_URI`）**：用户数据存于 MongoDB（collections：`users` / `states` / `images`），重启/休眠都不丢。
+- **本机/隧道（没设 `MONGODB_URI`）**：退回本地文件 `server-data/<用户名>/`（含 `state.json` 与 `images/`）。注意 Render 免费档会丢，故云端务必配 MongoDB。
+- 密码用 scrypt 加盐哈希，token 存于 `users` 集合，传输走 HTTPS 才安全。
 
 ---
 
