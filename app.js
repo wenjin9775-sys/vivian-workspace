@@ -381,17 +381,17 @@ function renderHome() {
 
   main.innerHTML = cdHeroHTML + `
     <div class="stat-grid">
-      <div class="stat-card"><div class="emoji">🏃</div><div class="value">${fitCount}<small>/${Math.max(3, fitCount)}</small></div><div class="label">今日运动</div></div>
-      <div class="stat-card"><div class="emoji">🍱</div><div class="value">${kcal}</div><div class="label">摄入 kcal</div></div>
-      <div class="stat-card"><div class="emoji">⚖️</div><div class="value">${latestW != null ? latestW : "--"}<small>${latestW != null ? "kg" : ""}</small></div><div class="label">最新 kg</div></div>
-      <div class="stat-card"><div class="emoji">✅</div><div class="value">${doneTasks}</div><div class="label">今日完成</div></div>
-      <div class="stat-card"><div class="emoji">📋</div><div class="value">${totalTasks}</div><div class="label">计划项目</div></div>
-      <div class="stat-card"><div class="emoji">🔥</div><div class="value">${weekCheck.size}</div><div class="label">本周打卡</div></div>
+      <div class="stat-card" data-module="life"><div class="emoji">🏃</div><div class="value">${fitCount}<small>/${Math.max(3, fitCount)}</small></div><div class="label">今日运动</div></div>
+      <div class="stat-card" data-module="life"><div class="emoji">🍱</div><div class="value">${kcal}</div><div class="label">摄入 kcal</div></div>
+      <div class="stat-card" data-module="life"><div class="emoji">⚖️</div><div class="value">${latestW != null ? latestW : "--"}<small>${latestW != null ? "kg" : ""}</small></div><div class="label">最新 kg</div></div>
+      <div class="stat-card" data-module="todo"><div class="emoji">✅</div><div class="value">${doneTasks}</div><div class="label">今日完成</div></div>
+      <div class="stat-card" data-module="todo"><div class="emoji">📋</div><div class="value">${totalTasks}</div><div class="label">计划项目</div></div>
+      <div class="stat-card" data-module="skincare"><div class="emoji">🔥</div><div class="value">${weekCheck.size}</div><div class="label">本周打卡</div></div>
     </div>
 
     <div class="section-title">📅 本周打卡</div>
     <div class="week-strip">
-      ${weekDays.map(d => `<div class="week-day ${d.isToday ? "active" : ""}">
+      ${weekDays.map(d => `<div class="week-day ${d.isToday ? "active" : ""}" data-day="${d.d}">
         <span class="dow">${d.dow}</span>
         <span class="dom">${d.dom}</span>
         <span class="dot">${d.active ? "●" : "·"}</span>
@@ -408,6 +408,7 @@ function renderHome() {
   `;
 
   main.querySelectorAll("[data-module]").forEach(el => el.onclick = () => openModuleModal(el.dataset.module));
+  main.querySelectorAll("[data-day]").forEach(el => el.onclick = () => openDaySummary(el.dataset.day));
 
   // 顶部倒计时实时跳动（每秒刷新）
   if (homeTickTimer) { clearInterval(homeTickTimer); homeTickTimer = null; }
@@ -426,6 +427,46 @@ function renderQuickRow(icon, title, sub, id) {
     <div class="info"><b>${esc(title)}</b><span>${esc(sub)}</span></div>
     <button class="action">›</button>
   </div>`;
+}
+function openDaySummary(date) {
+  const wd = weekDay(date);
+  const todoGroup = state.todo.find(g => g.date === date);
+  const todoTasks = todoGroup ? todoGroup.tasks : [];
+  const fitGroup = state.life.fitness.find(g => g.date === date);
+  const fitTasks = fitGroup ? fitGroup.tasks : [];
+  const dietDay = state.life.diet.find(d => d.date === date);
+  const dietItems = dietDay ? dietDay.items : [];
+  const skinCats = state.skincare.cats.filter(c => c.doneDates.includes(date));
+
+  const todoHTML = todoTasks.length
+    ? todoTasks.map(t => `<div class="day-li ${t.done ? "done" : ""}"><span>${t.done ? "✓" : "○"}</span> ${esc(t.text)}</div>`).join("")
+    : `<div class="empty" style="padding:8px 0">没有任务</div>`;
+  const fitHTML = fitTasks.length
+    ? fitTasks.map(t => `<div class="day-li ${t.done ? "done" : ""}"><span>${t.done ? "✓" : "○"}</span> ${esc(t.text)}</div>`).join("")
+    : `<div class="empty" style="padding:8px 0">没有运动记录</div>`;
+  const dietHTML = dietItems.length
+    ? dietItems.map(i => `<div class="day-li"><span>🍱</span> ${esc(i.name)} ${Number(i.kcal) || 0} kcal</div>`).join("")
+    : `<div class="empty" style="padding:8px 0">没有饮食记录</div>`;
+  const skinHTML = skinCats.length
+    ? skinCats.map(c => `<div class="day-li"><span>${SKIN_EMOJI[c.name] || "🧴"}</span> ${esc(c.name)}</div>`).join("")
+    : `<div class="empty" style="padding:8px 0">没有护肤记录</div>`;
+
+  const root = document.getElementById("modal-root");
+  root.innerHTML = `<div class="modal-backdrop" data-back>
+    <div class="modal" style="max-height:84vh;width:min(480px,94%)">
+      <div class="modal-head">${date} 星期${wd}<a class="modal-x" data-close>×</a></div>
+      <div class="modal-body">
+        <div class="day-sec"><b>✅ To Do</b>${todoHTML}</div>
+        <div class="day-sec"><b>🏃 运动</b>${fitHTML}</div>
+        <div class="day-sec"><b>🍱 饮食</b>${dietHTML}</div>
+        <div class="day-sec"><b>🧴 护肤</b>${skinHTML}</div>
+      </div>
+      <div class="modal-foot"><button class="btn" data-close>关闭</button></div>
+    </div>
+  </div>`;
+  const backdrop = root.querySelector(".modal-backdrop");
+  backdrop.querySelector("[data-close]").onclick = () => (root.innerHTML = "");
+  backdrop.onclick = (e) => { if (e.target === backdrop) root.innerHTML = ""; };
 }
 function grammarProgressText() {
   let total = 0, done = 0;

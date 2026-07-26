@@ -130,7 +130,10 @@ body{
   background:var(--card);border-radius:var(--radius-sm);
   padding:14px 10px;text-align:center;
   box-shadow:var(--shadow);
+  cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,.05);
+  transition:transform .12s,box-shadow .12s;
 }
+.stat-card:active{transform:scale(.96);}
 .stat-card .emoji{font-size:26px;line-height:1;margin-bottom:6px;}
 .stat-card .value{font-size:22px;font-weight:800;color:var(--accent-deep);line-height:1.1;}
 .stat-card .value small{font-size:11px;color:var(--ink-soft);font-weight:600;}
@@ -145,7 +148,9 @@ body{
 .week-day{
   flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;
   padding:8px 0;border-radius:10px;transition:background .15s;
+  cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,.05);
 }
+.week-day:active{transform:scale(.96);}
 .week-day.active{background:var(--accent-soft);}
 .week-day .dow{font-size:11px;color:var(--ink-soft);}
 .week-day .dom{font-size:15px;font-weight:700;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:50%;}
@@ -352,6 +357,14 @@ button{font-family:var(--font);cursor:pointer;}
 .me-item .icon{font-size:20px;}
 .me-item .text{flex:1;font-size:14px;font-weight:700;}
 .me-item .arrow{color:var(--ink-soft);}
+
+/* 日期摘要弹窗 */
+.day-sec{margin-bottom:14px;}
+.day-sec > b{display:block;font-size:13px;color:var(--accent-deep);margin-bottom:6px;}
+.day-li{display:flex;align-items:flex-start;gap:8px;font-size:13px;padding:5px 0;color:var(--ink);}
+.day-li span{flex:none;color:var(--accent);font-weight:700;}
+.day-li.done{color:var(--ink-soft);text-decoration:line-through;}
+.day-li.done span{color:var(--ink-soft);}
 
 /* 顶部倒计时可视化控件 */
 .cd-hero{border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;
