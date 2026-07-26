@@ -195,6 +195,10 @@ body{
   background:var(--accent);color:#fff;font-size:10px;font-weight:700;
   min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;
 }
+.module-tile .mt-prog{width:100%;margin-top:8px;display:flex;flex-direction:column;gap:4px;}
+.mt-bar{height:4px;border-radius:4px;background:var(--line);overflow:hidden;}
+.mt-bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-deep));border-radius:4px;transition:width .4s ease;}
+.mt-text{font-size:9px;color:var(--ink-soft);font-weight:600;line-height:1.1;}
 
 /* ---------- 通用元素 ---------- */
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}

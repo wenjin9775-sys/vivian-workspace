@@ -517,10 +517,12 @@ function renderModules() {
   main.innerHTML = progressHTML + `<div class="module-grid">
     ${MODULES.filter(m => m.id !== "brain").map(m => {
       const badge = moduleBadge(m.id);
+      const prog = moduleProgress(m.id);
       return `<button class="module-tile" data-module="${m.id}" style="position:relative">
         ${badge ? `<span class="badge">${badge}</span>` : ""}
         <span class="icon">${m.icon}</span>
         <span class="name">${esc(m.title)}</span>
+        <span class="mt-prog"><span class="mt-bar"><i style="width:${prog.pct}%"></i></span><span class="mt-text">${esc(prog.text)}</span></span>
       </button>`;
     }).join("")}
   </div>`;
@@ -538,6 +540,70 @@ function moduleBadge(id) {
   }
   if (id === "expense") return state.expense.filter(e => e.date === today).length || "";
   return "";
+}
+/* 每个小模块的进度（有每日打卡数据的按「本周 7 天」计算，其余按完成度计算） */
+function weekDaysSet() {
+  const s = new Set();
+  for (let i = 0; i < 7; i++) s.add(daysAgoStr(i));
+  return s;
+}
+function moduleProgress(id) {
+  const last7 = weekDaysSet();
+  switch (id) {
+    case "todo": {
+      const days = new Set();
+      state.todo.forEach(g => { if (last7.has(g.date) && g.tasks.some(t => t.done)) days.add(g.date); });
+      return { pct: Math.round(days.size / 7 * 100), text: `本周打卡 ${days.size}/7 天` };
+    }
+    case "life": {
+      const days = new Set();
+      state.life.fitness.forEach(g => { if (last7.has(g.date) && g.tasks.some(t => t.done)) days.add(g.date); });
+      state.life.diet.forEach(g => { if (last7.has(g.date) && (g.items || []).length) days.add(g.date); });
+      return { pct: Math.round(days.size / 7 * 100), text: `本周打卡 ${days.size}/7 天` };
+    }
+    case "skincare": {
+      const days = new Set();
+      state.skincare.cats.forEach(c => c.doneDates.forEach(d => { if (last7.has(d)) days.add(d); }));
+      return { pct: Math.round(days.size / 7 * 100), text: `本周打卡 ${days.size}/7 天` };
+    }
+    case "grammar": {
+      const days = new Set();
+      state.grammar.books.forEach(b => b.chapters.forEach(c => (c.checkins || []).forEach(d => { if (last7.has(d)) days.add(d); })));
+      return { pct: Math.round(days.size / 7 * 100), text: `本周打卡 ${days.size}/7 天` };
+    }
+    case "vocabpractice": {
+      const total = state.vocabPractice.lessons.length;
+      const done = state.vocabPractice.lessons.filter(l => l.done).length;
+      return { pct: total ? Math.round(done / total * 100) : 0, text: `完成 ${done}/${total} 课` };
+    }
+    case "expense": {
+      const n = state.expense.filter(e => e.date && e.date.slice(0, 7) === todayStr().slice(0, 7)).length;
+      return { pct: Math.min(100, n * 20), text: `本月 ${n} 笔` };
+    }
+    case "inspiration": {
+      const n = state.inspiration.length;
+      return { pct: Math.min(100, n * 10), text: `${n} 条灵感` };
+    }
+    case "gratitude": {
+      const n = state.gratitude.length;
+      return { pct: Math.min(100, n * 10), text: `${n} 篇日记` };
+    }
+    case "applications": {
+      const total = state.applications.length;
+      const done = state.applications.filter(a => a.status === "已完成").length;
+      return total ? { pct: Math.round(done / total * 100), text: `${done}/${total} 完成` } : { pct: 0, text: "未添加" };
+    }
+    case "visa": {
+      const total = state.visa.length;
+      const done = state.visa.filter(v => v.status === "已完成").length;
+      return total ? { pct: Math.round(done / total * 100), text: `${done}/${total} 步` } : { pct: 0, text: "未添加" };
+    }
+    case "countdown": {
+      const n = (state.countdowns || []).length;
+      return { pct: n ? 100 : 0, text: n ? `${n} 个目标` : "未设置" };
+    }
+  }
+  return { pct: 0, text: "" };
 }
 
 function openModuleModal(id) {
