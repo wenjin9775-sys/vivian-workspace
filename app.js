@@ -482,7 +482,39 @@ function monthExpenseText() {
 /* ---------- 模块页 ---------- */
 function renderModules() {
   const main = document.getElementById("app-main");
-  main.innerHTML = `<div class="module-grid">
+
+  // 本周打卡（最近 7 天，任一日完成 To Do / 运动 / 护肤即算打卡）
+  const weekCheck = new Set();
+  const weekDays = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = daysAgoStr(i);
+    const on = state.todo.some(g => g.date === d && g.tasks.some(t => t.done)) ||
+      state.life.fitness.some(g => g.date === d && g.tasks.some(t => t.done)) ||
+      state.skincare.cats.some(c => c.doneDates.includes(d));
+    if (on) weekCheck.add(d);
+    weekDays.push({ d, dow: weekDay(d), on, isToday: d === todayStr() });
+  }
+  const checkCount = weekCheck.size;
+  const pct = Math.round(checkCount / 7 * 100);
+  const progressHTML = `
+    <div class="card">
+      <div class="card-head">
+        <span class="card-icon">🔥</span>
+        <span class="card-title">本周打卡进度</span>
+        <span class="chip">${checkCount}/7 天</span>
+      </div>
+      <div class="card-body">
+        <div class="wp-bar">
+          ${weekDays.map(x => `<div class="wp-seg ${x.on ? "on" : ""} ${x.isToday ? "today" : ""}" title="${x.d} 周${x.dow}${x.on ? " · 已打卡" : ""}"><span>${x.dow}</span></div>`).join("")}
+        </div>
+        <div class="wp-foot">
+          <div class="pbar"><i style="width:${pct}%"></i></div>
+          <div class="wp-text">本周已打卡 ${checkCount} 天，完成度 ${pct}%</div>
+        </div>
+      </div>
+    </div>`;
+
+  main.innerHTML = progressHTML + `<div class="module-grid">
     ${MODULES.filter(m => m.id !== "brain").map(m => {
       const badge = moduleBadge(m.id);
       return `<button class="module-tile" data-module="${m.id}" style="position:relative">
