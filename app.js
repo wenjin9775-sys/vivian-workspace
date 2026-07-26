@@ -612,14 +612,90 @@ function openModuleModal(id) {
   const root = document.getElementById("modal-root");
   root.innerHTML = `<div class="modal-backdrop" data-back>
     <div class="modal" style="max-height:86vh;width:min(520px,94%)">
-      <div class="modal-head"><span>${m.icon} ${esc(m.title)}</span><a class="modal-x" data-close>×</a></div>
+      <div class="modal-head">
+        <span>${m.icon} ${esc(m.title)}</span>
+        <span class="modal-actions">
+          <button class="modal-rec" data-rec>📋 记录</button>
+          <a class="modal-x" data-close>×</a>
+        </span>
+      </div>
       <div class="modal-body" id="module-modal-body"></div>
     </div>
   </div>`;
   const backdrop = root.querySelector(".modal-backdrop");
+  const body = root.querySelector("#module-modal-body");
   backdrop.querySelector("[data-close]").onclick = () => (root.innerHTML = "");
   backdrop.onclick = (e) => { if (e.target === backdrop) root.innerHTML = ""; };
-  m.render(document.getElementById("module-modal-body"));
+  backdrop.querySelector("[data-rec]").onclick = () => showModuleRecords(id, body, () => m.render(body));
+  m.render(body);
+}
+function showModuleRecords(id, body, back) {
+  body.innerHTML = `<button class="btn ghost sm" data-back style="margin-bottom:12px">← 返回编辑</button>
+    <div id="rec-list">${moduleRecordsHTML(id)}</div>`;
+  body.querySelector("[data-back]").onclick = back;
+}
+function moduleRecordsHTML(id) {
+  switch (id) {
+    case "countdown": {
+      const list = (state.countdowns || []);
+      if (!list.length) return `<div class="empty">还没有设置倒计时</div>`;
+      return list.map(d => {
+        const diff = cdTarget(d).getTime() - Date.now();
+        const p = cdParts(diff);
+        const txt = p.past ? `已过去 ${p.days} 天` : `还剩 ${p.days} 天 ${p.hours} 时`;
+        return `<div class="rec-item"><b>${esc(d.title)}</b><span>${esc(d.date)} ${esc(d.time || "")}</span><span class="rec-tag">${txt}</span></div>`;
+      }).join("");
+    }
+    case "grammar": {
+      const learned = state.grammar.books.flatMap(b => b.chapters.filter(c => c.learned).map(c => ({ book: b.name, c })));
+      if (!learned.length) return `<div class="empty">还没有学过的课程</div>`;
+      return learned.map(x => `<div class="rec-item"><b>${esc(x.c.title)}</b><span>${esc(x.book)}</span></div>`).join("");
+    }
+    case "vocabpractice": {
+      const done = state.vocabPractice.lessons.filter(l => l.done);
+      if (!done.length) return `<div class="empty">还没有完成的单词课</div>`;
+      return done.map(l => `<div class="rec-item"><b>${esc(l.label)}</b><span>已完成 ✓</span></div>`).join("");
+    }
+    case "todo": {
+      const items = state.todo.flatMap(g => g.tasks.map(t => ({ date: g.date, t })));
+      if (!items.length) return `<div class="empty">还没有待办</div>`;
+      return items.map(x => `<div class="rec-item ${x.t.done ? "done" : ""}"><b>${esc(x.t.text)}</b><span>${esc(x.date)} ${x.t.done ? "✓" : "○"}</span></div>`).join("");
+    }
+    case "life": {
+      const rows = [];
+      state.life.weight.forEach(w => rows.push({ k: "体重", v: `${w.value} kg`, d: w.date }));
+      state.life.fitness.forEach(g => g.tasks.forEach(t => rows.push({ k: "运动", v: t.text, d: g.date, done: t.done })));
+      state.life.diet.forEach(g => (g.items || []).forEach(i => rows.push({ k: "饮食", v: `${i.name} ${Number(i.kcal) || 0}kcal`, d: g.date })));
+      if (!rows.length) return `<div class="empty">生活区还没有记录</div>`;
+      return rows.map(r => `<div class="rec-item ${r.done ? "done" : ""}"><b><span class="rec-k">${r.k}</span> ${esc(r.v)}</b><span>${esc(r.d)}</span></div>`).join("");
+    }
+    case "expense": {
+      if (!state.expense.length) return `<div class="empty">还没有花销记录</div>`;
+      return state.expense.map(e => `<div class="rec-item"><b>${esc((e.category || "") + " " + e.amount)}</b><span>${esc(e.date)} ${esc(e.note || "")}</span></div>`).join("");
+    }
+    case "inspiration": {
+      if (!state.inspiration.length) return `<div class="empty">还没有灵感</div>`;
+      return state.inspiration.map(n => `<div class="rec-item"><b>${esc(n.title || "")}</b><span>${esc((n.type || "") + " " + (n.date || ""))}</span><div class="rec-body">${esc(n.body || "")}</div></div>`).join("");
+    }
+    case "gratitude": {
+      if (!state.gratitude.length) return `<div class="empty">还没有感恩日记</div>`;
+      return state.gratitude.map(n => `<div class="rec-item"><b>${esc(n.text || "")}</b><span>${esc(n.date || "")}</span></div>`).join("");
+    }
+    case "applications": {
+      if (!state.applications.length) return `<div class="empty">还没有添加材料</div>`;
+      return state.applications.map(a => `<div class="rec-item"><b>${esc(a.name)}</b><span>${esc(a.status || "")}</span></div>`).join("");
+    }
+    case "visa": {
+      if (!state.visa.length) return `<div class="empty">还没有添加步骤</div>`;
+      return state.visa.map(v => `<div class="rec-item"><b>${esc(v.name)}</b><span>${esc(v.status || "")}</span></div>`).join("");
+    }
+    case "skincare": {
+      const rows = state.skincare.cats.filter(c => c.doneDates.length).map(c => ({ name: c.name, n: c.doneDates.length }));
+      if (!rows.length) return `<div class="empty">护肤还没有打卡记录</div>`;
+      return rows.map(r => `<div class="rec-item"><b>${SKIN_EMOJI[r.name] || "🧴"} ${esc(r.name)}</b><span>已打卡 ${r.n} 天</span></div>`).join("");
+    }
+  }
+  return `<div class="empty">暂无记录</div>`;
 }
 
 /* ---------- 第二大脑 ---------- */
