@@ -1,5 +1,5 @@
 /* =========================================================================
-   Vivian 的工作台  —  纯前端单页应用
+   Vivian 的工作台  —  纯前端单页应用（绿色版 / 底部导航 / 第二大脑）
    数据：localStorage(结构化) + IndexedDB(图片)
    ========================================================================= */
 "use strict";
@@ -42,7 +42,7 @@ async function getImg(id) {
   if (authToken) { const d = await apiGetImage(id); if (d) { await idb.put(id, d); return d; } }
   return null;
 }
-const ACCENTS = ["#ff8fb1", "#ff6f91", "#ffa3c4", "#f78fb3", "#ff5d8f", "#ffb3c6", "#e98aaa", "#ff9ec4"];
+const ACCENTS = ["#10b981", "#3b82f6", "#f59e0b", "#ec4899", "#8b5cf6", "#06b6d4", "#ef4444", "#14b8a6"];
 
 /* ---------- 工具 ---------- */
 const uid = () => {
@@ -66,6 +66,12 @@ function toast(msg) {
   const t = document.getElementById("toast");
   t.textContent = msg; t.classList.add("show");
   clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 1800);
+}
+function formatDate(d) {
+  return new Date(d).toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
+}
+function weekDay(d) {
+  return ["日","一","二","三","四","五","六"][new Date(d).getDay()];
 }
 
 /* ---------- IndexedDB（图片） ---------- */
@@ -148,7 +154,6 @@ function defaultGrammar() {
 function defaultVocabPractice() {
   const lessons = [];
   for (let b = 1; b <= 5; b++) for (let l = 1; l <= 10; l++) lessons.push({ id: uid(), label: `延世${b}-${l}`, done: false });
-  // 已学到 延世2-1：延世1 全册 + 延世2-1 完成
   lessons.forEach(x => { if (x.label.startsWith("延世1") || x.label === "延世2-1") x.done = true; });
   return {
     videoUrl: "https://b23.tv/GVpiVeB",
@@ -163,7 +168,7 @@ function defaultSkincare() {
 }
 function defaultState() {
   return {
-    settings: { accent: "#ff8fb1", bgColor: "#fff5f8", bgImage: null, showSub: "记录生活 · 韩语学习 · 申请进度" },
+    settings: { accent: "#10b981", bgColor: "#f0fdf4", bgImage: null, showSub: "记录生活 · 韩语学习 · 申请进度", userName: "Vivian" },
     layout: { col1: ["countdown", "grammar", "vocabpractice", "todo", "life", "expense"], col2: ["inspiration", "gratitude", "skincare", "applications", "visa"] },
     expense: [],
     vocab: [],
@@ -176,7 +181,8 @@ function defaultState() {
     applications: [],
     visa: [],
     skincare: defaultSkincare(),
-    countdowns: []
+    countdowns: [],
+    secondBrain: []
   };
 }
 let state = loadState();
@@ -199,7 +205,6 @@ function ensureLayout() {
   const all = MODULES.map(m => m.id);
   const present = new Set([...state.layout.col1, ...state.layout.col2]);
   all.forEach(id => { if (!present.has(id)) state.layout.col1.push(id); });
-  // 去重 & 过滤无效
   state.layout.col1 = [...new Set(state.layout.col1)].filter(id => all.includes(id));
   state.layout.col2 = [...new Set(state.layout.col2)].filter(id => all.includes(id));
 }
@@ -210,13 +215,11 @@ function ensureSkincare() {
   if (!state.skincare || !state.skincare.cats || !state.skincare.cats.length) state.skincare = defaultSkincare();
 }
 function migrate() {
-  // 旧版「每天 To Do」为扁平结构 {id,text,date,done} → 按日期分组
   if (state.todo.length && state.todo[0].tasks === undefined) {
     const map = {};
     state.todo.forEach(t => { (map[t.date] = map[t.date] || []).push({ id: t.id || uid(), text: t.text, done: !!t.done }); });
     state.todo = Object.entries(map).map(([date, tasks]) => ({ date, tasks }));
   }
-  // 旧版「健身运动」为扁平结构 {id,text,date} → 按日期分组
   if (state.life.fitness.length && state.life.fitness[0].tasks === undefined) {
     const map = {};
     state.life.fitness.forEach(f => { (map[f.date] = map[f.date] || []).push({ id: f.id || uid(), text: f.text, done: false }); });
@@ -231,8 +234,6 @@ function applyTheme() {
   r.setProperty("--accent-soft", lighten(state.settings.accent, 0.55));
   r.setProperty("--accent-deep", lighten(state.settings.accent, -0.18));
   document.body.style.background = state.settings.bgColor || "var(--bg)";
-  const sub = document.getElementById("brand-sub");
-  if (sub) sub.textContent = state.settings.showSub || "";
   if (state.settings.bgImage) {
     getImg(state.settings.bgImage).then(d => { if (d) document.body.style.backgroundImage = `url(${d})`; });
   } else {
@@ -247,111 +248,43 @@ function lighten(hex, amt) {
 }
 
 /* =========================================================================
-   顶部可视化总栏
+   顶部动态头
    ========================================================================= */
-function currentLessonLabel() {
-  const ls = state.vocabPractice.lessons;
-  const firstUndone = ls.find(l => !l.done);
-  return firstUndone ? firstUndone.label : (ls.length ? ls[ls.length - 1].label : "—");
+function streakDays() {
+  const days = [];
+  for (let i = 0; i < 30; i++) days.push(daysAgoStr(i));
+  let streak = 0;
+  for (const d of days) {
+    const active = state.todo.some(g => g.date === d && g.tasks.some(t => t.done)) ||
+      state.life.fitness.some(g => g.date === d && g.tasks.some(t => t.done)) ||
+      state.skincare.cats.some(c => c.doneDates.includes(d)) ||
+      state.vocabPractice.lessons.some(l => l.done);
+    if (active) streak++; else if (d !== todayStr()) break;
+  }
+  return streak;
 }
-function renderTopbar() {
-  const w = document.getElementById("topbar-widgets");
-  const mk = monthKey();
-
-  const monthExp = state.expense.filter(e => e.date && e.date.startsWith(mk));
-  const totalExp = monthExp.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-  const byCat = {};
-  monthExp.forEach(e => { byCat[e.category || "其他"] = (byCat[e.category || "其他"] || 0) + (Number(e.amount) || 0); });
-  const catArr = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 3);
-  const maxCat = catArr.length ? catArr[0][1] : 1;
-  const expHTML = catArr.map(([c, v]) =>
-    `<div class="cat"><span style="width:36px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c)}</span>
-     <span class="track"><i style="width:${(v / maxCat * 100).toFixed(0)}%"></i></span>
-     <span style="width:44px;text-align:right;">${money(v)}</span></div>`).join("") || `<div class="w-sub">本月还没记录～</div>`;
-
-  const vocabTotal = state.vocab.length;
-  const vocabWeek = state.vocab.filter(v => v.date >= daysAgoStr(7)).length;
-  const vpDone = state.vocabPractice.lessons.filter(l => l.done).length;
-
-  let totalCh = 0, learnedCh = 0;
-  state.grammar.books.forEach(b => b.chapters.forEach(c => { totalCh++; if (c.learned) learnedCh++; }));
-  const gPct = totalCh ? Math.round(learnedCh / totalCh * 100) : 0;
-
-  const apps = state.applications;
-  const appPrepared = apps.filter(a => a.status && a.status !== "未准备").length;
-  const appDone = apps.filter(a => a.status === "已完成").length;
-
-  const wArr = [...state.life.weight].sort((a, b) => a.date.localeCompare(b.date));
-  const latestW = wArr.length ? wArr[wArr.length - 1].weight : null;
-  const fitWeek = state.life.fitness.filter(g => g.date >= daysAgoStr(7)).reduce((s, g) => s + (g.tasks ? g.tasks.length : 1), 0);
-  const spark = sparkline(wArr.slice(-8).map(x => Number(x.weight)));
-
-  // 护肤：本周打卡天数（doneDates 落在近 7 天内的去重天数）
-  const skinDates = new Set();
-  (state.skincare.cats || []).forEach(cat => (cat.doneDates || []).forEach(d => { if (d >= daysAgoStr(7)) skinDates.add(d); }));
-  const skinWeek = skinDates.size;
-
-  const ringCirc = (2 * Math.PI * 19).toFixed(1);
-  const ringOff = (2 * Math.PI * 19 * (1 - gPct / 100)).toFixed(1);
-
-  w.innerHTML = `
-    <div class="widget">
-      <div class="w-label">💰 本月开销</div>
-      <div class="w-value">${money(totalExp)}</div>
-      <div class="w-sub">${monthExp.length} 笔</div>
-      <div class="w-bars">${expHTML}</div>
+function renderHeader() {
+  const h = document.getElementById("app-header");
+  const t = todayStr();
+  const month = new Date().getMonth() + 1;
+  const date = new Date().getDate();
+  const wd = weekDay(t);
+  const streak = streakDays();
+  h.innerHTML = `
+    <div class="header-top">
+      <div class="header-greet">早安，${esc(state.settings.userName || "Vivian")}</div>
+      <div class="header-streak">🔥 连续打卡 ${streak} 天</div>
     </div>
-    <div class="widget">
-      <div class="w-label">📝 韩语单词</div>
-      <div class="w-value">${vocabTotal}</div>
-      <div class="w-sub">本周 +${vocabWeek} · 带练至 ${esc(currentLessonLabel())}</div>
-    </div>
-    <div class="widget">
-      <div class="w-label">📚 语法进度</div>
-      <div class="ring-wrap">
-        <svg class="ring" width="46" height="46" viewBox="0 0 46 46">
-          <circle cx="23" cy="23" r="19" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="6"/>
-          <circle cx="23" cy="23" r="19" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"
-            stroke-dasharray="${ringCirc}" stroke-dashoffset="${ringOff}"/>
-          <text x="23" y="23" text-anchor="middle" dominant-baseline="central">${gPct}%</text>
-        </svg>
-        <div class="w-sub" style="margin:0">${learnedCh}/${totalCh} 课</div>
+    <div class="header-main">
+      <div class="header-date">
+        <div class="day">${month}月${date}日</div>
+        <div class="week">星期${wd}</div>
       </div>
-    </div>
-    <div class="widget">
-      <div class="w-label">📄 文书申请</div>
-      <div class="w-value" style="font-size:18px">${appPrepared}/${apps.length || 0}</div>
-      <div class="w-sub">已准备 · 完成 ${appDone}</div>
-      <div class="w-bar"><i style="width:${apps.length ? (appPrepared / apps.length * 100) : 0}%"></i></div>
-    </div>
-    <div class="widget">
-      <div class="w-label">💪 生活区</div>
-      <div class="w-value" style="font-size:18px">${latestW != null ? latestW + " kg" : "—"}</div>
-      <div class="w-sub">本周健身 ${fitWeek} 次 · 带练 ${vpDone}/50</div>
-      <div style="margin-top:4px">${spark}</div>
-    </div>
-    <div class="widget">
-      <div class="w-label">🧴 护肤概览</div>
-      <div class="w-value" style="font-size:18px">${skinWeek}<small> 天</small></div>
-      <div class="w-sub">本周护肤打卡</div>
-      <div class="w-bar"><i style="width:${Math.min(100, Math.round(skinWeek / 7 * 100))}%"></i></div>
+      <div class="header-weather">
+        <span class="w-icon">🌤️</span>
+        <span class="w-temp">26°C</span>
+      </div>
     </div>`;
-}
-
-function sparkline(vals) {
-  if (!vals.length || vals.some(v => isNaN(v))) return `<div class="muted" style="color:rgba(255,255,255,.85)">记录体重看趋势</div>`;
-  const w = 130, h = 26, max = Math.max(...vals), min = Math.min(...vals), span = max - min || 1;
-  const pts = vals.map((v, i) => `${(i / (vals.length - 1) * w).toFixed(1)},${(h - (v - min) / span * (h - 4) - 2).toFixed(1)}`).join(" ");
-  return `<svg width="${w}" height="${h}"><polyline points="${pts}" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg>`;
-}
-function sparklineBig(arr) {
-  if (!arr.length) return `<div class="muted">记录体重看趋势</div>`;
-  const w = 280, h = 60, vals = arr.map(x => x.v), max = Math.max(...vals), min = Math.min(...vals), span = max - min || 1;
-  const pts = arr.map((x, i) => `${(i / (arr.length - 1) * w).toFixed(1)},${(h - (x.v - min) / span * (h - 8) - 4).toFixed(1)}`).join(" ");
-  return `<svg width="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="max-width:${w}px">
-    <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>
-    <text x="4" y="12" font-size="10" fill="var(--ink-soft)">${max}</text>
-    <text x="4" y="${h - 3}" font-size="10" fill="var(--ink-soft)">${min}</text></svg>`;
 }
 
 /* =========================================================================
@@ -359,17 +292,309 @@ function sparklineBig(arr) {
    ========================================================================= */
 const MODULES = [
   { id: "countdown", title: "倒计时", icon: "⏳", render: renderCountdown },
-  { id: "grammar", title: "韩语语法进度", icon: "📚", render: renderGrammar },
-  { id: "vocabpractice", title: "韩语单词带练", icon: "🎧", render: renderVocabPractice },
-  { id: "todo", title: "每天 To Do", icon: "✅", render: renderTodo },
+  { id: "grammar", title: "韩语语法", icon: "📚", render: renderGrammar },
+  { id: "vocabpractice", title: "单词带练", icon: "🎧", render: renderVocabPractice },
+  { id: "todo", title: "To Do", icon: "✅", render: renderTodo },
   { id: "life", title: "生活区", icon: "🌸", render: renderLife },
-  { id: "expense", title: "花销记录", icon: "💸", render: renderExpense },
+  { id: "expense", title: "花销", icon: "💸", render: renderExpense },
   { id: "inspiration", title: "创作灵感", icon: "💡", render: renderInspiration },
   { id: "gratitude", title: "感恩日记", icon: "🙏", render: renderGratitude },
   { id: "applications", title: "文书申请", icon: "📄", render: renderApplications },
-  { id: "visa", title: "签证办理", icon: "🛂", render: renderVisa },
+  { id: "visa", title: "签证", icon: "🛂", render: renderVisa },
   { id: "skincare", title: "每日护肤", icon: "🧴", render: renderSkincare }
 ];
+
+/* ---------- 首页 ---------- */
+function renderHome() {
+  const main = document.getElementById("app-main");
+  const today = todayStr();
+
+  // 今日统计
+  const fitToday = state.life.fitness.find(g => g.date === today);
+  const fitCount = fitToday ? fitToday.tasks.length : 0;
+  const dietToday = state.life.diet.find(d => d.date === today);
+  const kcal = dietToday ? dietToday.items.reduce((s, i) => s + (Number(i.kcal) || 0), 0) : 0;
+  const wtArr = [...state.life.weight].sort((a, b) => a.date.localeCompare(b.date));
+  const latestW = wtArr.length ? wtArr[wtArr.length - 1].weight : null;
+
+  const allTasks = state.todo.flatMap(g => g.tasks);
+  const doneTasks = allTasks.filter(t => t.done).length;
+  const totalTasks = allTasks.length;
+
+  const weekCheck = new Set();
+  for (let i = 0; i < 7; i++) {
+    const d = daysAgoStr(i);
+    if (state.todo.some(g => g.date === d && g.tasks.some(t => t.done)) ||
+      state.life.fitness.some(g => g.date === d && g.tasks.some(t => t.done)) ||
+      state.skincare.cats.some(c => c.doneDates.includes(d))) weekCheck.add(d);
+  }
+
+  const skinToday = state.skincare.cats.filter(c => c.doneDates.includes(today)).length;
+
+  // 本周打卡条
+  const weekDays = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = daysAgoStr(i);
+    const active = state.todo.some(g => g.date === d && g.tasks.some(t => t.done)) ||
+      state.life.fitness.some(g => g.date === d && g.tasks.some(t => t.done)) ||
+      state.skincare.cats.some(c => c.doneDates.includes(d));
+    weekDays.push({ d, dow: weekDay(d), dom: d.slice(8), active, isToday: d === today });
+  }
+
+  main.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="emoji">🏃</div><div class="value">${fitCount}<small>/${Math.max(3, fitCount)}</small></div><div class="label">今日运动</div></div>
+      <div class="stat-card"><div class="emoji">🍱</div><div class="value">${kcal}</div><div class="label">摄入 kcal</div></div>
+      <div class="stat-card"><div class="emoji">⚖️</div><div class="value">${latestW != null ? latestW : "--"}<small>${latestW != null ? "kg" : ""}</small></div><div class="label">最新 kg</div></div>
+      <div class="stat-card"><div class="emoji">✅</div><div class="value">${doneTasks}</div><div class="label">今日完成</div></div>
+      <div class="stat-card"><div class="emoji">📋</div><div class="value">${totalTasks}</div><div class="label">计划项目</div></div>
+      <div class="stat-card"><div class="emoji">🔥</div><div class="value">${weekCheck.size}</div><div class="label">本周打卡</div></div>
+    </div>
+
+    <div class="section-title">📅 本周打卡</div>
+    <div class="week-strip">
+      ${weekDays.map(d => `<div class="week-day ${d.isToday ? "active" : ""}">
+        <span class="dow">${d.dow}</span>
+        <span class="dom">${d.dom}</span>
+        <span class="dot">${d.active ? "●" : "·"}</span>
+      </div>`).join("")}
+    </div>
+
+    <div class="section-title">⚡ 今日速览</div>
+    <div class="quick-list">
+      ${renderQuickRow("✅", "To Do", `${doneTasks}/${totalTasks} 完成`, "todo")}
+      ${renderQuickRow("🧴", "每日护肤", `${skinToday}/${state.skincare.cats.length} 已做`, "skincare")}
+      ${renderQuickRow("📚", "韩语语法", grammarProgressText(), "grammar")}
+      ${renderQuickRow("💸", "本月花销", monthExpenseText(), "expense")}
+    </div>
+  `;
+
+  main.querySelectorAll("[data-module]").forEach(el => el.onclick = () => openModuleModal(el.dataset.module));
+}
+function renderQuickRow(icon, title, sub, id) {
+  return `<div class="quick-row" data-module="${id}">
+    <span class="icon">${icon}</span>
+    <div class="info"><b>${esc(title)}</b><span>${esc(sub)}</span></div>
+    <button class="action">›</button>
+  </div>`;
+}
+function grammarProgressText() {
+  let total = 0, done = 0;
+  state.grammar.books.forEach(b => b.chapters.forEach(c => { total++; if (c.learned) done++; }));
+  return `${done}/${total} 章节`;
+}
+function monthExpenseText() {
+  const mk = monthKey();
+  const total = state.expense.filter(e => e.date && e.date.startsWith(mk)).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  return money(total);
+}
+
+/* ---------- 模块页 ---------- */
+function renderModules() {
+  const main = document.getElementById("app-main");
+  main.innerHTML = `<div class="module-grid">
+    ${MODULES.filter(m => m.id !== "brain").map(m => {
+      const badge = moduleBadge(m.id);
+      return `<button class="module-tile" data-module="${m.id}" style="position:relative">
+        ${badge ? `<span class="badge">${badge}</span>` : ""}
+        <span class="icon">${m.icon}</span>
+        <span class="name">${esc(m.title)}</span>
+      </button>`;
+    }).join("")}
+  </div>`;
+  main.querySelectorAll("[data-module]").forEach(b => b.onclick = () => openModuleModal(b.dataset.module));
+}
+function moduleBadge(id) {
+  const today = todayStr();
+  if (id === "todo") {
+    const undone = state.todo.flatMap(g => g.tasks).filter(t => !t.done).length;
+    return undone || "";
+  }
+  if (id === "skincare") {
+    const n = state.skincare.cats.filter(c => c.doneDates.includes(today)).length;
+    return n || "";
+  }
+  if (id === "expense") return state.expense.filter(e => e.date === today).length || "";
+  return "";
+}
+
+function openModuleModal(id) {
+  const m = MODULES.find(x => x.id === id);
+  if (!m) return;
+  const root = document.getElementById("modal-root");
+  root.innerHTML = `<div class="modal-backdrop" data-back>
+    <div class="modal" style="max-height:86vh;width:min(520px,94%)">
+      <div class="modal-head"><span>${m.icon} ${esc(m.title)}</span><a class="modal-x" data-close>×</a></div>
+      <div class="modal-body" id="module-modal-body"></div>
+    </div>
+  </div>`;
+  const backdrop = root.querySelector(".modal-backdrop");
+  backdrop.querySelector("[data-close]").onclick = () => (root.innerHTML = "");
+  backdrop.onclick = (e) => { if (e.target === backdrop) root.innerHTML = ""; };
+  m.render(document.getElementById("module-modal-body"));
+}
+
+/* ---------- 第二大脑 ---------- */
+function renderSecondBrainPage() {
+  const main = document.getElementById("app-main");
+  const tags = [...new Set(state.secondBrain.flatMap(n => n.tags || []))];
+  main.innerHTML = `
+    <div class="brain-search"><input id="brain-search" placeholder="搜索想法、笔记、灵感…" /></div>
+    <div class="brain-tags" id="brain-tags">
+      <button class="brain-tag active" data-tag="">全部</button>
+      ${tags.map(t => `<button class="brain-tag" data-tag="${esc(t)}">${esc(t)}</button>`).join("")}
+    </div>
+    <div id="brain-list"></div>
+    <button class="brain-fab" id="brain-add">+</button>
+  `;
+  let activeTag = "";
+  const searchEl = main.querySelector("#brain-search");
+  function draw() {
+    const q = (searchEl.value || "").trim().toLowerCase();
+    const list = document.getElementById("brain-list");
+    const filtered = state.secondBrain.filter(n => {
+      if (activeTag && !(n.tags || []).includes(activeTag)) return false;
+      if (!q) return true;
+      return (n.title || "").toLowerCase().includes(q) || (n.body || "").toLowerCase().includes(q) || (n.tags || []).some(t => t.toLowerCase().includes(q));
+    }).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    list.innerHTML = filtered.length ? filtered.map(n => `<div class="brain-note" data-id="${n.id}">
+      <div class="ntitle">${esc(n.title || "未命名笔记")}</div>
+      <div class="nbody">${esc(n.body || "")}</div>
+      <div class="nmeta">
+        ${(n.tags || []).map(t => `<span class="ntag">${esc(t)}</span>`).join("")}
+        <span class="ndate">${esc(n.date || "")}</span>
+      </div>
+    </div>`).join("") : `<div class="empty">还没有笔记，点击右下角 + 添加</div>`;
+    list.querySelectorAll(".brain-note").forEach(el => el.onclick = () => openBrainNote(el.dataset.id));
+  }
+  draw();
+  searchEl.oninput = draw;
+  main.querySelectorAll("#brain-tags .brain-tag").forEach(b => b.onclick = () => {
+    activeTag = b.dataset.tag;
+    main.querySelectorAll("#brain-tags .brain-tag").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    draw();
+  });
+  main.querySelector("#brain-add").onclick = () => openBrainNote(null);
+}
+function openBrainNote(id) {
+  const note = id ? state.secondBrain.find(n => n.id === id) : null;
+  const root = document.getElementById("modal-root");
+  root.innerHTML = `<div class="modal-backdrop" data-back>
+    <div class="modal">
+      <div class="modal-head">${note ? "编辑笔记" : "新想法"}<a class="modal-x" data-close>×</a></div>
+      <div class="modal-body">
+        <input id="bn-title" placeholder="标题" value="${esc(note ? note.title : "")}" style="margin-bottom:10px" />
+        <textarea id="bn-body" placeholder="写下你的想法、灵感、知识碎片…" style="min-height:120px;margin-bottom:10px">${esc(note ? note.body : "")}</textarea>
+        <input id="bn-tags" placeholder="标签，用空格或逗号分隔，如 灵感 韩语 计划" value="${esc(note ? (note.tags || []).join(" ") : "")}" />
+      </div>
+      <div class="modal-foot">
+        ${note ? '<button class="btn ghost" id="bn-del">删除</button>' : ""}
+        <button class="btn" data-close>取消</button>
+        <button class="btn" id="bn-save">保存</button>
+      </div>
+    </div>
+  </div>`;
+  const backdrop = root.querySelector(".modal-backdrop");
+  backdrop.querySelectorAll("[data-close]").forEach(b => b.onclick = () => (root.innerHTML = ""));
+  backdrop.onclick = (e) => { if (e.target === backdrop) root.innerHTML = ""; };
+  const saveBtn = root.querySelector("#bn-save");
+  saveBtn.onclick = () => {
+    const title = root.querySelector("#bn-title").value.trim();
+    const body = root.querySelector("#bn-body").value.trim();
+    const tags = root.querySelector("#bn-tags").value.split(/[\s,，]+/).map(t => t.trim()).filter(Boolean);
+    if (!title && !body) return toast("写点什么吧");
+    if (note) {
+      note.title = title; note.body = body; note.tags = tags;
+    } else {
+      state.secondBrain.push({ id: uid(), title, body, tags, date: todayStr() });
+    }
+    save(); renderSecondBrainPage(); root.innerHTML = ""; toast("已保存");
+  };
+  const delBtn = root.querySelector("#bn-del");
+  if (delBtn) delBtn.onclick = () => {
+    if (!confirm("删除这条笔记？")) return;
+    state.secondBrain = state.secondBrain.filter(n => n.id !== id);
+    save(); renderSecondBrainPage(); root.innerHTML = ""; toast("已删除");
+  };
+}
+
+/* ---------- 我的 ---------- */
+function renderMe() {
+  const main = document.getElementById("app-main");
+  main.innerHTML = `
+    <div class="me-card">
+      <div class="me-avatar">${esc((state.settings.userName || "V").slice(0, 1))}</div>
+      <div class="me-name">${esc(state.settings.userName || "Vivian")}</div>
+      <div class="me-status">${authToken ? "已登录 · 数据云端同步中" : "未登录 · 数据仅存在本机"}</div>
+    </div>
+    <div class="me-menu">
+      <button class="me-item" id="me-auth"><span class="icon">${authToken ? "🚪" : "🔑"}</span><span class="text">${authToken ? "退出登录" : "登录 / 注册"}</span><span class="arrow">›</span></button>
+      <button class="me-item" id="me-theme"><span class="icon">🎨</span><span class="text">主题色</span><span class="arrow">›</span></button>
+      <button class="me-item" id="me-name"><span class="icon">✏️</span><span class="text">修改称呼</span><span class="arrow">›</span></button>
+      <button class="me-item" id="me-clear"><span class="icon">🗑</span><span class="text">清空所有数据</span><span class="arrow">›</span></button>
+    </div>
+  `;
+  main.querySelector("#me-auth").onclick = onAuthClick;
+  main.querySelector("#me-theme").onclick = openThemePicker;
+  main.querySelector("#me-name").onclick = () => {
+    const n = prompt("怎么称呼你？", state.settings.userName || "Vivian");
+    if (n && n.trim()) { state.settings.userName = n.trim(); save(); renderHeader(); renderMe(); toast("已更新"); }
+  };
+  main.querySelector("#me-clear").onclick = () => {
+    if (!confirm("确定清空所有数据？此操作不可恢复。")) return;
+    state = defaultState(); save(); applyTheme(); renderHeader(); renderMe(); toast("已清空");
+  };
+}
+function openThemePicker() {
+  const root = document.getElementById("modal-root");
+  const swatches = ACCENTS.map(a => `<span class="swatch ${a === state.settings.accent ? "active" : ""}" data-accent="${a}" style="background:${a}"></span>`).join("");
+  root.innerHTML = `<div class="modal-backdrop"><div class="modal">
+    <div class="modal-head">🎨 主题色<a class="modal-x" data-close>×</a></div>
+    <div class="modal-body">
+      <div class="swatch-row">${swatches}
+        <input type="color" id="set-accent" value="${state.settings.accent}" style="width:40px;height:34px;padding:2px;cursor:pointer" />
+      </div>
+      <div class="muted" style="font-weight:700">背景颜色</div>
+      <input type="color" id="set-bg" value="${state.settings.bgColor}" style="margin:6px 0 12px;width:100%;height:36px;padding:2px;cursor:pointer" />
+      <div class="muted" style="font-weight:700">副标题</div>
+      <input id="set-sub" value="${esc(state.settings.showSub)}" style="margin:6px 0 14px" />
+    </div>
+    <div class="modal-foot"><button class="btn" data-close>完成</button></div>
+  </div></div>`;
+  const backdrop = root.querySelector(".modal-backdrop");
+  backdrop.querySelectorAll("[data-close]").forEach(b => b.onclick = () => (root.innerHTML = ""));
+  root.querySelectorAll("[data-accent]").forEach(s => s.onclick = () => {
+    state.settings.accent = s.dataset.accent;
+    save(); applyTheme(); renderHeader();
+    root.querySelectorAll("[data-accent]").forEach(x => x.classList.remove("active"));
+    s.classList.add("active");
+    root.querySelector("#set-accent").value = s.dataset.accent;
+  });
+  root.querySelector("#set-accent").oninput = e => { state.settings.accent = e.target.value; save(); applyTheme(); renderHeader(); };
+  root.querySelector("#set-bg").oninput = e => { state.settings.bgColor = e.target.value; save(); applyTheme(); };
+  root.querySelector("#set-sub").oninput = e => { state.settings.showSub = e.target.value; save(); };
+}
+
+/* =========================================================================
+   标签切换
+   ========================================================================= */
+let currentTab = "home";
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll(".tab-item").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
+  if (tab === "home") renderHome();
+  else if (tab === "modules") renderModules();
+  else if (tab === "brain") renderSecondBrainPage();
+  else if (tab === "me") renderMe();
+}
+function setupTabs() {
+  document.querySelectorAll(".tab-item").forEach(t => t.onclick = () => switchTab(t.dataset.tab));
+}
+
+/* =========================================================================
+   以下保留原有模块渲染函数，仅做最小兼容调整
+   ========================================================================= */
 
 /* ---------- 倒计时 ---------- */
 function renderCountdown(c) {
@@ -402,11 +627,11 @@ function renderCountdown(c) {
     const date = c.querySelector("#cd-date").value;
     if (!title || !date) return toast("请填写名称和日期");
     state.countdowns.push({ id: uid(), title, date });
-    save(); c.querySelector("#cd-title").value = ""; c.querySelector("#cd-date").value = ""; draw();
+    save(); c.querySelector("#cd-title").value = ""; c.querySelector("#cd-date").value = ""; draw(); renderHeader();
   };
 }
 
-/* ---------- 韩语语法进度（小框网格 + 点击打开详情） ---------- */
+/* ---------- 韩语语法进度 ---------- */
 function renderGrammar(c) {
   const books = state.grammar.books;
   let totalCh = 0, learnedCh = 0;
@@ -489,15 +714,14 @@ function renderGrammar(c) {
           <div class="modal-foot"><button class="btn" data-close>完成</button></div>
         </div></div>`;
       const backdrop = root.querySelector(".modal-backdrop");
-      // 关闭：× / 完成 / 点背景空白处（不会卡住）
       backdrop.querySelectorAll("[data-close]").forEach(x => x.onclick = () => (root.innerHTML = ""));
       backdrop.onclick = (e) => { if (e.target === backdrop) root.innerHTML = ""; };
       root.querySelector("#ch-title").oninput = e => { ch.title = e.target.value; save(); redraw(); };
-      root.querySelector("#ch-learned").onclick = () => { ch.learned = !ch.learned; save(); renderTopbar(); redraw(); paint(); };
+      root.querySelector("#ch-learned").onclick = () => { ch.learned = !ch.learned; save(); renderHeader(); redraw(); paint(); };
       root.querySelector("#ch-del").onclick = () => {
         if (!confirm("确定删除本章？")) return;
         book.chapters = book.chapters.filter(x => x.id !== ch.id);
-        save(); renderTopbar(); redraw(); root.innerHTML = "";
+        save(); renderHeader(); redraw(); root.innerHTML = "";
       };
       root.querySelector("#ch-addnote").onclick = () => {
         const t = root.querySelector("#ch-note").value.trim();
@@ -529,7 +753,7 @@ function renderGrammar(c) {
   draw();
 }
 
-/* ---------- 每日护肤（分类卡片 + 点击打开记录意见/图片） ---------- */
+/* ---------- 每日护肤 ---------- */
 function renderSkincare(c) {
   const cats = state.skincare.cats;
   const today = todayStr();
@@ -570,7 +794,7 @@ function renderSkincare(c) {
     if (!t) return;
     if (state.skincare.cats.some(cat => cat.name === t)) return toast("已存在该分类");
     state.skincare.cats.push({ id: uid(), name: t, doneDates: [], entries: [] });
-    save(); renderTopbar(); draw();
+    save(); renderHeader(); draw();
   };
 }
 
@@ -602,12 +826,12 @@ function openSkincareModal(cat, redraw) {
   root.querySelector("#sk-done").onclick = () => {
     const i = cat.doneDates.indexOf(today);
     if (i >= 0) cat.doneDates.splice(i, 1); else cat.doneDates.push(today);
-    save(); renderTopbar(); redraw(); openSkincareModal(cat, redraw);
+    save(); renderHeader(); redraw(); openSkincareModal(cat, redraw);
   };
   root.querySelector("#sk-delcat").onclick = () => {
     if (!confirm(`确定删除「${cat.name}」分类？所有记录会一并删除。`)) return;
     state.skincare.cats = state.skincare.cats.filter(x => x.id !== cat.id);
-    save(); renderTopbar(); redraw(); root.innerHTML = "";
+    save(); renderHeader(); redraw(); root.innerHTML = "";
   };
   root.querySelector("#sk-addnote").onclick = () => {
     const t = root.querySelector("#sk-note").value.trim();
@@ -685,7 +909,7 @@ function openSkincareEntryModal(cat, entry, redraw, parentRender) {
   };
 }
 
-/* ---------- 韩语单词带练（视频 + 解锁 + 生词本） ---------- */
+/* ---------- 韩语单词带练 ---------- */
 function renderVocabPractice(c) {
   const vp = state.vocabPractice;
   const total = vp.lessons.length;
@@ -725,7 +949,7 @@ function renderVocabPractice(c) {
       const unlocked = i === 0 || vp.lessons[i - 1].done;
       if (!unlocked && !vp.lessons[i].done) return toast("先完成前面的课节解锁哦 🔒");
       vp.lessons[i].done = !vp.lessons[i].done;
-      save(); renderTopbar(); drawGrid();
+      save(); renderHeader(); drawGrid();
       const cur2 = currentLessonLabel();
       const dn = vp.lessons.filter(l => l.done).length;
       const pct2 = total ? Math.round(dn / total * 100) : 0;
@@ -735,7 +959,6 @@ function renderVocabPractice(c) {
   }
   c.querySelector("#vp-open").onclick = () => window.open(vp.videoUrl, "_blank", "noopener");
 
-  // 生词本
   const vbList = c.querySelector("#vb-list");
   function drawVocab() {
     vbList.innerHTML = state.vocab.length ? state.vocab.slice().reverse().map(v => `<div class="item">
@@ -743,7 +966,7 @@ function renderVocabPractice(c) {
       <div style="font-size:13px;padding-right:16px"><b>${esc(v.word)}</b> — ${esc(v.mean)}<br><span class="muted">${esc(v.date)}</span></div></div>`).join("")
       : `<div class="empty">生词本还是空的，记几个单词吧</div>`;
     vbList.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
-      state.vocab = state.vocab.filter(x => x.id !== b.dataset.del); save(); renderTopbar(); drawVocab();
+      state.vocab = state.vocab.filter(x => x.id !== b.dataset.del); save(); renderHeader(); drawVocab();
     });
   }
   drawVocab();
@@ -752,12 +975,17 @@ function renderVocabPractice(c) {
     const mean = c.querySelector("#vb-mean").value.trim();
     if (!word) return toast("请输入单词");
     state.vocab.push({ id: uid(), word, mean, date: todayStr() });
-    save(); c.querySelector("#vb-word").value = ""; c.querySelector("#vb-mean").value = ""; renderTopbar(); drawVocab();
+    save(); c.querySelector("#vb-word").value = ""; c.querySelector("#vb-mean").value = ""; renderHeader(); drawVocab();
   };
   drawGrid();
 }
+function currentLessonLabel() {
+  const ls = state.vocabPractice.lessons;
+  const firstUndone = ls.find(l => !l.done);
+  return firstUndone ? firstUndone.label : (ls.length ? ls[ls.length - 1].label : "—");
+}
 
-/* ---------- To Do（按日期分组，多项可勾选） ---------- */
+/* ---------- To Do ---------- */
 function renderTodo(c) {
   c.innerHTML = `
     <div class="form-grid">
@@ -797,15 +1025,15 @@ function renderTodo(c) {
     listEl.querySelectorAll("[data-task]").forEach(b => b.onchange = () => {
       const [d, iid] = b.dataset.task.split("|");
       const g = state.todo.find(x => x.date === d); const t = g && g.tasks.find(x => x.id === iid);
-      if (t) { t.done = b.checked; save(); draw(); }
+      if (t) { t.done = b.checked; save(); draw(); renderHeader(); }
     });
     listEl.querySelectorAll("[data-deltask]").forEach(b => b.onclick = () => {
       const [d, iid] = b.dataset.deltask.split("|");
       const g = state.todo.find(x => x.date === d);
-      if (g) { g.tasks = g.tasks.filter(x => x.id !== iid); if (!g.tasks.length) state.todo = state.todo.filter(x => x.date !== d); save(); draw(); }
+      if (g) { g.tasks = g.tasks.filter(x => x.id !== iid); if (!g.tasks.length) state.todo = state.todo.filter(x => x.date !== d); save(); draw(); renderHeader(); }
     });
     listEl.querySelectorAll("[data-delgroup]").forEach(b => b.onclick = () => {
-      state.todo = state.todo.filter(x => x.date !== b.dataset.delgroup); save(); draw();
+      state.todo = state.todo.filter(x => x.date !== b.dataset.delgroup); save(); draw(); renderHeader();
     });
   }
   draw();
@@ -814,11 +1042,11 @@ function renderTodo(c) {
     const text = c.querySelector("#td-text").value.trim();
     if (!text) return toast("请输入任务");
     findGroup(date).tasks.push({ id: uid(), text, done: false });
-    save(); c.querySelector("#td-text").value = ""; draw();
+    save(); c.querySelector("#td-text").value = ""; draw(); renderHeader();
   };
 }
 
-/* ---------- 生活区（健身 / 体重 / 饮食卡路里） ---------- */
+/* ---------- 生活区 ---------- */
 function renderLife(c) {
   c.innerHTML = `
   <div class="muted" style="font-weight:700;margin-bottom:4px">🏃 健身运动（按日期，多项可勾选）</div>
@@ -879,15 +1107,15 @@ function renderLife(c) {
     fitList.querySelectorAll("[data-ftask]").forEach(b => b.onchange = () => {
       const [d, iid] = b.dataset.ftask.split("|");
       const g = state.life.fitness.find(x => x.date === d); const t = g && g.tasks.find(x => x.id === iid);
-      if (t) { t.done = b.checked; save(); renderTopbar(); drawFit(); }
+      if (t) { t.done = b.checked; save(); renderHeader(); drawFit(); }
     });
     fitList.querySelectorAll("[data-fdeltask]").forEach(b => b.onclick = () => {
       const [d, iid] = b.dataset.fdeltask.split("|");
       const g = state.life.fitness.find(x => x.date === d);
-      if (g) { g.tasks = g.tasks.filter(x => x.id !== iid); if (!g.tasks.length) state.life.fitness = state.life.fitness.filter(x => x.date !== d); save(); renderTopbar(); drawFit(); }
+      if (g) { g.tasks = g.tasks.filter(x => x.id !== iid); if (!g.tasks.length) state.life.fitness = state.life.fitness.filter(x => x.date !== d); save(); renderHeader(); drawFit(); }
     });
     fitList.querySelectorAll("[data-fdelgroup]").forEach(b => b.onclick = () => {
-      state.life.fitness = state.life.fitness.filter(x => x.date !== b.dataset.fdelgroup); save(); renderTopbar(); drawFit();
+      state.life.fitness = state.life.fitness.filter(x => x.date !== b.dataset.fdelgroup); save(); renderHeader(); drawFit();
     });
   }
   drawFit();
@@ -896,7 +1124,7 @@ function renderLife(c) {
     const text = c.querySelector("#fit-text").value.trim();
     if (!text) return toast("写点训练内容吧");
     findFitGroup(date).tasks.push({ id: uid(), text, done: false });
-    save(); c.querySelector("#fit-text").value = ""; renderTopbar(); drawFit();
+    save(); c.querySelector("#fit-text").value = ""; renderHeader(); drawFit();
   };
 
   const wtList = c.querySelector("#wt-list");
@@ -909,7 +1137,7 @@ function renderLife(c) {
       <button class="del" data-del="${w.id}">×</button></div>`).join("")
       : `<div class="empty">记录体重看趋势</div>`;
     wtList.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
-      state.life.weight = state.life.weight.filter(x => x.id !== b.dataset.del); save(); renderTopbar(); drawWt();
+      state.life.weight = state.life.weight.filter(x => x.id !== b.dataset.del); save(); renderHeader(); drawWt();
     });
   }
   drawWt();
@@ -918,7 +1146,7 @@ function renderLife(c) {
     if (isNaN(v)) return toast("请输入体重");
     const ex = state.life.weight.find(x => x.date === date);
     if (ex) ex.weight = v; else state.life.weight.push({ id: uid(), weight: v, date });
-    save(); c.querySelector("#wt-val").value = ""; renderTopbar(); drawWt();
+    save(); c.querySelector("#wt-val").value = ""; renderHeader(); drawWt();
   };
 
   const dietList = c.querySelector("#diet-list");
@@ -944,10 +1172,10 @@ function renderLife(c) {
     dietList.querySelectorAll("[data-delitem]").forEach(b => b.onclick = () => {
       const [did, iid] = b.dataset.delitem.split("|");
       const d = state.life.diet.find(x => x.id === did); if (d) d.items = d.items.filter(i => i.id !== iid);
-      save(); drawDiet();
+      save(); drawDiet(); renderHeader();
     });
     dietList.querySelectorAll("[data-delday]").forEach(b => b.onclick = () => {
-      state.life.diet = state.life.diet.filter(x => x.id !== b.dataset.delday); save(); drawDiet();
+      state.life.diet = state.life.diet.filter(x => x.id !== b.dataset.delday); save(); drawDiet(); renderHeader();
     });
   }
   drawDiet();
@@ -957,12 +1185,22 @@ function renderLife(c) {
     const kcal = parseFloat(c.querySelector("#diet-kcal").value);
     if (!name) return toast("请输入食物名");
     findDay(date).items.push({ id: uid(), name, kcal: isNaN(kcal) ? 0 : kcal, img: null });
-    save(); c.querySelector("#diet-name").value = ""; c.querySelector("#diet-kcal").value = ""; drawDiet();
+    save(); c.querySelector("#diet-name").value = ""; c.querySelector("#diet-kcal").value = ""; drawDiet(); renderHeader();
   };
   c.querySelector("#diet-pic").onclick = () => {
     const date = c.querySelector("#diet-date").value;
     uploadImage(id => { findDay(date).img = id; save(); drawDiet(); });
   };
+}
+
+function sparklineBig(arr) {
+  if (!arr.length) return `<div class="muted">记录体重看趋势</div>`;
+  const w = 280, h = 60, vals = arr.map(x => x.v), max = Math.max(...vals), min = Math.min(...vals), span = max - min || 1;
+  const pts = arr.map((x, i) => `${(i / (arr.length - 1) * w).toFixed(1)},${(h - (x.v - min) / span * (h - 8) - 4).toFixed(1)}`).join(" ");
+  return `<svg width="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="max-width:${w}px">
+    <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>
+    <text x="4" y="12" font-size="10" fill="var(--ink-soft)">${max}</text>
+    <text x="4" y="${h - 3}" font-size="10" fill="var(--ink-soft)">${min}</text></svg>`;
 }
 
 /* ---------- 花销记录 ---------- */
@@ -991,7 +1229,7 @@ function renderExpense(c) {
       ${e.img ? `<div class="thumbs"><span class="thumb" data-img="${e.img}"></span></div>` : ""}</div>`).join("");
     hydrateImages(listEl);
     listEl.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
-      state.expense = state.expense.filter(x => x.id !== b.dataset.del); save(); renderTopbar(); draw();
+      state.expense = state.expense.filter(x => x.id !== b.dataset.del); save(); renderHeader(); draw();
     });
   }
   draw();
@@ -1003,15 +1241,15 @@ function renderExpense(c) {
     if (isNaN(amount)) return toast("请输入金额");
     state.expense.push({ id: uid(), date, category, amount, note, img: pendingImg });
     pendingImg = null;
-    save(); c.querySelector("#ex-amt").value = ""; c.querySelector("#ex-note").value = ""; c.querySelector("#ex-cat").value = "";
-    renderTopbar(); draw();
+    save(); c.querySelector("#ex-amt").value = ""; c.querySelector("#ex-note").value = ""; c.querySelector("#ex-cat").value = ""; c.querySelector("#ex-pic").textContent = "📷 上传凭证图";
+    renderHeader(); draw();
   };
   c.querySelector("#ex-pic").onclick = () => {
     uploadImage(id => { pendingImg = id; toast("凭证图已附加，点记录即可保存"); c.querySelector("#ex-pic").textContent = "📷 已选图"; });
   };
 }
 
-/* ---------- 创作灵感（小红书 / 小说） ---------- */
+/* ---------- 创作灵感 ---------- */
 function renderInspiration(c) {
   c.innerHTML = `
   <div class="muted" style="font-weight:700;margin-bottom:4px">📕 小红书灵感</div>
@@ -1084,7 +1322,7 @@ function renderGratitude(c) {
     const date = c.querySelector("#gr-date").value;
     if (!text) return toast("写点感恩的事吧");
     state.gratitude.push({ id: uid(), text, date });
-    save(); c.querySelector("#gr-text").value = ""; draw();
+    save(); c.querySelector("#gr-text").value = ""; draw(); renderHeader();
   };
 }
 
@@ -1109,10 +1347,10 @@ function renderApplications(c) {
         </select>
       </div></div>`).join("");
     listEl.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
-      state.applications = state.applications.filter(x => x.id !== b.dataset.del); save(); renderTopbar(); draw();
+      state.applications = state.applications.filter(x => x.id !== b.dataset.del); save(); draw();
     });
     listEl.querySelectorAll("[data-status]").forEach(s => s.onchange = () => {
-      const a = state.applications.find(x => x.id === s.dataset.status); if (a) { a.status = s.value; save(); renderTopbar(); }
+      const a = state.applications.find(x => x.id === s.dataset.status); if (a) { a.status = s.value; save(); }
     });
   }
   draw();
@@ -1120,7 +1358,7 @@ function renderApplications(c) {
     const name = c.querySelector("#ap-name").value.trim();
     if (!name) return toast("请输入材料名称");
     state.applications.push({ id: uid(), name, status: "未准备" });
-    save(); c.querySelector("#ap-name").value = ""; renderTopbar(); draw();
+    save(); c.querySelector("#ap-name").value = ""; draw();
   };
 }
 
@@ -1161,142 +1399,15 @@ function renderVisa(c) {
 }
 
 /* =========================================================================
-   看板渲染 + 拖拽排序
+   账号 UI
    ========================================================================= */
-function renderBoard() {
-  ["col1", "col2"].forEach(col => {
-    const el = document.getElementById(col); el.innerHTML = "";
-    state.layout[col].forEach(id => {
-      const m = MODULES.find(x => x.id === id);
-      if (m) el.appendChild(makeCard(m));
-    });
-  });
-}
-function makeCard(m) {
-  const card = document.createElement("div");
-  card.className = "card"; card.dataset.module = m.id;
-  const head = document.createElement("div");
-  head.className = "card-head";
-  head.innerHTML = `<span class="card-icon">${m.icon}</span><span class="card-title">${esc(m.title)}</span><span class="drag-handle">⠿</span>`;
-  const body = document.createElement("div");
-  body.className = "card-body";
-  card.appendChild(head); card.appendChild(body);
-  m.render(body);
-  makeDraggable(card);
-  return card;
-}
-
-let dragEl = null;
-function makeDraggable(card) {
-  card.draggable = true;
-  card.addEventListener("dragstart", () => { dragEl = card; card.classList.add("dragging"); });
-  card.addEventListener("dragend", () => { card.classList.remove("dragging"); dragEl = null; saveLayoutFromDOM(); });
-}
-function getDragAfter(col, y) {
-  const els = [...col.querySelectorAll(".card:not(.dragging)")];
-  return els.reduce((closest, child) => {
-    const box = child.getBoundingClientRect();
-    const offset = y - box.top - box.height / 2;
-    if (offset < 0 && offset > closest.offset) return { offset, element: child };
-    return closest;
-  }, { offset: -Infinity, element: null }).element;
-}
-function saveLayoutFromDOM() {
-  ["col1", "col2"].forEach(col => {
-    const el = document.getElementById(col);
-    if (el) state.layout[col] = [...el.querySelectorAll(".card")].map(card => card.dataset.module);
-  });
-  save();
-}
-function setupColumnDnD() {
-  ["col1", "col2"].forEach(col => {
-    const el = document.getElementById(col);
-    el.addEventListener("dragover", e => {
-      e.preventDefault(); el.classList.add("drag-over");
-      if (!dragEl) return;
-      const after = getDragAfter(el, e.clientY);
-      if (after == null) el.appendChild(dragEl); else el.insertBefore(dragEl, after);
-    });
-    el.addEventListener("dragleave", () => el.classList.remove("drag-over"));
-    el.addEventListener("drop", e => { e.preventDefault(); el.classList.remove("drag-over"); saveLayoutFromDOM(); });
-  });
-}
-
-/* =========================================================================
-   DIY 设置面板
-   ========================================================================= */
-function openSettings() {
-  const root = document.getElementById("modal-root");
-  const swatches = ACCENTS.map(a => `<span class="swatch ${a === state.settings.accent ? "active" : ""}" data-accent="${a}" style="background:${a}"></span>`).join("");
-  root.innerHTML = `
-    <div class="modal-backdrop">
-      <div class="modal">
-        <div class="modal-head">💖 DIY 定制工作台<a class="modal-x" data-close>×</a></div>
-        <div class="modal-body">
-          <div class="muted" style="font-weight:700">主题色</div>
-          <div class="swatch-row">${swatches}
-            <input type="color" id="set-accent" value="${state.settings.accent}" style="width:40px;height:34px;padding:2px;cursor:pointer" />
-          </div>
-          <div class="muted" style="font-weight:700">背景颜色</div>
-          <input type="color" id="set-bg" value="${state.settings.bgColor}" style="margin:6px 0 12px;width:100%;height:36px;padding:2px;cursor:pointer" />
-          <div class="muted" style="font-weight:700">背景图片（可上传）</div>
-          <div class="row" style="margin:6px 0 12px">
-            <button class="btn soft sm" id="set-bgimg">📷 上传背景图</button>
-            <button class="btn ghost sm" id="set-bgimg-del">移除背景图</button>
-          </div>
-          <div class="muted" style="font-weight:700">副标题文字</div>
-          <input id="set-sub" value="${esc(state.settings.showSub)}" style="margin:6px 0 14px" />
-          <button class="btn ghost full" id="set-reset" style="color:#d9534f;border-color:#f3c2c2">🗑 清空所有数据（不可恢复）</button>
-        </div>
-        <div class="modal-foot"><button class="btn" data-close>完成</button></div>
-      </div>
-    </div>`;
-  const backdrop = root.querySelector(".modal-backdrop");
-  backdrop.querySelectorAll("[data-close]").forEach(b => b.onclick = () => (root.innerHTML = ""));
-
-  root.querySelectorAll("[data-accent]").forEach(s => s.onclick = () => {
-    state.settings.accent = s.dataset.accent;
-    root.querySelectorAll("[data-accent]").forEach(x => x.classList.remove("active"));
-    s.classList.add("active");
-    document.getElementById("set-accent").value = s.dataset.accent;
-    save(); applyTheme();
-  });
-  root.querySelector("#set-accent").oninput = e => {
-    state.settings.accent = e.target.value; save(); applyTheme();
-    root.querySelectorAll("[data-accent]").forEach(x => x.classList.remove("active"));
-  };
-  root.querySelector("#set-bg").oninput = e => { state.settings.bgColor = e.target.value; save(); applyTheme(); };
-  root.querySelector("#set-sub").oninput = e => { state.settings.showSub = e.target.value; save(); applyTheme(); };
-  root.querySelector("#set-bgimg").onclick = () => uploadImage(id => {
-    if (state.settings.bgImage) idb.del(state.settings.bgImage).catch(() => {});
-    state.settings.bgImage = id; save(); applyTheme();
-  });
-  root.querySelector("#set-bgimg-del").onclick = () => {
-    if (state.settings.bgImage) idb.del(state.settings.bgImage).catch(() => {});
-    state.settings.bgImage = null; save(); applyTheme();
-  };
-  root.querySelector("#set-reset").onclick = () => {
-    if (!confirm("确定清空所有数据？此操作不可恢复。")) return;
-    state = defaultState(); save(); applyTheme(); renderTopbar(); renderBoard(); root.innerHTML = ""; toast("已清空");
-  };
-}
-
-/* =========================================================================
-   初始化
-   ========================================================================= */
-/* ---------- 账号 UI ---------- */
-function refreshAuthBtn() {
-  const b = document.getElementById("auth-btn");
-  if (!b) return;
-  if (authToken) { b.textContent = "👤 " + (authUser || "我"); b.title = "已登录 · 点击退出"; }
-  else { b.textContent = "登录"; b.title = "登录后可多端同步"; }
-}
+function refreshAuthBtn() {}
 function onAuthClick() {
   if (authToken) {
     if (confirm("退出登录？本机数据会保留，云端数据仍在你的账号里。")) {
       authToken = null; authUser = null;
       try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); } catch (_) {}
-      refreshAuthBtn(); toast("已退出登录");
+      toast("已退出登录"); renderMe();
     }
   } else openAuth();
 }
@@ -1334,8 +1445,7 @@ function openAuth() {
         if (s && s.state) state = Object.assign(defaultState(), s.state, { settings: Object.assign(defaultState().settings, s.state.settings || {}) });
       } catch (_) {}
       ensureVocabPractice(); ensureSkincare(); ensureLayout(); migrate();
-      save(); applyTheme(); renderTopbar(); renderBoard(); setupColumnDnD();
-      refreshAuthBtn();
+      save(); applyTheme(); renderHeader(); switchTab(currentTab);
       toast(isReg ? "注册成功，已登录 🎉" : "登录成功 🎉");
       root.innerHTML = "";
     } catch (e) { msg.textContent = (e.message || "出错了"); }
@@ -1352,7 +1462,6 @@ function registerSW() {
 async function init() {
   try {
     try { await idb.open(); } catch (e) { console.warn("IndexedDB 不可用，图片功能将受限", e); }
-    // 已登录：先拉取云端数据覆盖本地（多端同步）
     if (authToken) {
       try {
         const s = await api("/api/state");
@@ -1371,13 +1480,9 @@ async function init() {
     migrate();
     save();
     applyTheme();
-    renderTopbar();
-    renderBoard();
-    setupColumnDnD();
-    document.getElementById("settings-btn").onclick = openSettings;
-    refreshAuthBtn();
-    const ab = document.getElementById("auth-btn");
-    if (ab) ab.onclick = onAuthClick;
+    setupTabs();
+    renderHeader();
+    switchTab("home");
     registerSW();
   } catch (err) {
     console.error("init failed", err);

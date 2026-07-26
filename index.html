@@ -2,47 +2,55 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Vivian 的工作台</title>
-  <meta name="theme-color" content="#ff8fb1" />
+  <meta name="theme-color" content="#10b981" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icon.svg" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- 顶部可视化总栏 -->
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div class="brand">
-        <div class="brand-logo">V</div>
-        <div class="brand-text">
-          <h1>Vivian 的工作台</h1>
-          <p id="brand-sub">记录生活 · 韩语学习 · 申请进度</p>
-        </div>
-      </div>
-      <div id="topbar-widgets" class="widgets"></div>
-      <button id="auth-btn" class="settings-btn" title="登录后可多端同步">登录</button>
-      <button id="settings-btn" class="settings-btn" title="DIY 定制">⚙</button>
-    </div>
-  </header>
+  <div id="app">
+    <!-- 顶部动态头 -->
+    <header class="app-header" id="app-header"></header>
 
-  <!-- 下方两栏可拖拽发布区 -->
-  <main class="board">
-    <section class="column" id="col1" data-col="col1"></section>
-    <section class="column" id="col2" data-col="col2"></section>
-  </main>
+    <!-- 主内容区 -->
+    <main class="app-main" id="app-main"></main>
+
+    <!-- 底部导航 -->
+    <nav class="app-tabbar" id="app-tabbar">
+      <button class="tab-item active" data-tab="home">
+        <span class="tab-icon">🏠</span>
+        <span class="tab-label">首页</span>
+      </button>
+      <button class="tab-item" data-tab="modules">
+        <span class="tab-icon">📦</span>
+        <span class="tab-label">模块</span>
+      </button>
+      <button class="tab-item" data-tab="brain">
+        <span class="tab-icon">🧠</span>
+        <span class="tab-label">第二大脑</span>
+      </button>
+      <button class="tab-item" data-tab="me">
+        <span class="tab-icon">👤</span>
+        <span class="tab-label">我的</span>
+      </button>
+    </nav>
+  </div>
 
   <div id="modal-root"></div>
   <div id="toast" class="toast"></div>
 
   <script>
-  /* 初始化错误兜底：捕获任何在 app.js 中未被吞掉的异常，避免白屏 */
+  /* 初始化错误兜底 */
   (function(){
     var box = document.getElementById('app-error');
     if (!box) {
       box = document.createElement('div');
       box.id = 'app-error';
-      box.style.cssText = 'display:none;position:fixed;top:80px;left:20px;right:20px;z-index:9999;background:#fff0f3;border:2px solid #ff5d8f;color:#c91a4e;padding:18px 20px;border-radius:14px;font-family:system-ui,Microsoft YaHei;font-size:13px;white-space:pre-wrap;max-height:70vh;overflow:auto;box-shadow:0 10px 30px rgba(255,93,143,.25);';
+      box.style.cssText = 'display:none;position:fixed;top:80px;left:20px;right:20px;z-index:9999;background:#ecfdf5;border:2px solid #10b981;color:#065f46;padding:18px 20px;border-radius:14px;font-family:system-ui,Microsoft YaHei;font-size:13px;white-space:pre-wrap;max-height:70vh;overflow:auto;box-shadow:0 10px 30px rgba(16,185,129,.25);';
       document.body.appendChild(box);
     }
     function show(msg){
@@ -59,6 +67,6 @@
     });
   })();
   </script>
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>
