@@ -249,7 +249,14 @@ const server = http.createServer(async (req, res) => {
   fs.readFile(fp, (err, data) => {
     if (err) { res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" }); return res.end("404 Not Found"); }
     const ext = path.extname(fp).toLowerCase();
-    res.writeHead(200, { "Content-Type": MIME[ext] || "application/octet-stream" });
+    const headers = { "Content-Type": MIME[ext] || "application/octet-stream" };
+    // HTML / Service Worker / manifest 禁止缓存，保证 PWA 永远拿到最新壳；带版本号的 CSS/JS 可长期缓存
+    if (ext === ".html" || ext === ".webmanifest" || rel === "/sw.js") {
+      headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0";
+    } else if ([".js", ".css", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".woff2"].includes(ext)) {
+      headers["Cache-Control"] = "public, max-age=31536000, immutable";
+    }
+    res.writeHead(200, headers);
     res.end(data);
   });
 });

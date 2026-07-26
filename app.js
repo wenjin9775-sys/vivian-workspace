@@ -265,6 +265,7 @@ function streakDays() {
 }
 function renderHeader() {
   const h = document.getElementById("app-header");
+  if (!h) return;
   const t = todayStr();
   const month = new Date().getMonth() + 1;
   const date = new Date().getDate();
@@ -856,6 +857,24 @@ function switchTab(tab) {
 }
 function setupTabs() {
   document.querySelectorAll(".tab-item").forEach(t => t.onclick = () => switchTab(t.dataset.tab));
+}
+function criticalElementsReady() {
+  return document.getElementById("app-header") && document.getElementById("app-main") && document.getElementById("app-tabbar");
+}
+function showReloadPrompt() {
+  const box = document.getElementById("app-error");
+  if (!box) return;
+  box.innerHTML = `<div style="font-size:16px;font-weight:800;margin-bottom:8px">发现新版本可用 📦</div>
+    <div style="margin-bottom:12px">你当前看到的是旧版页面缓存。请点击下方按钮重新加载，或彻底关闭 App 后重新打开。</div>
+    <button id="reload-app" style="background:#fff;color:#ec4899;border:none;border-radius:10px;padding:8px 16px;font-weight:700;font-size:13px">立即重新加载</button>`;
+  box.style.display = "block";
+  document.getElementById("reload-app").onclick = () => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).then(() => location.reload(true)).catch(() => location.reload(true));
+    } else {
+      location.reload(true);
+    }
+  };
 }
 
 /* =========================================================================
@@ -1752,6 +1771,10 @@ async function init() {
     migrate();
     save();
     applyTheme();
+    if (!criticalElementsReady()) {
+      showReloadPrompt();
+      return;
+    }
     setupTabs();
     renderHeader();
     switchTab("home");
