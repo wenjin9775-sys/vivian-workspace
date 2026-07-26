@@ -408,7 +408,7 @@ function renderHome() {
     </div>
   `;
 
-  main.querySelectorAll("[data-module]").forEach(el => el.onclick = () => openModuleModal(el.dataset.module));
+  main.querySelectorAll("[data-module]").forEach(el => el.onclick = () => renderModulePage(el.dataset.module, () => switchTab("home"), "‹ 返回"));
   main.querySelectorAll("[data-day]").forEach(el => el.onclick = () => openDaySummary(el.dataset.day));
 
   // 顶部倒计时实时跳动（每秒刷新）
@@ -484,19 +484,33 @@ function monthExpenseText() {
 function renderModules() {
   const main = document.getElementById("app-main");
 
-  // 本周打卡（最近 7 天，任一日完成 To Do / 运动 / 护肤即算打卡）
+  // 本周打卡（最近 7 天，任一日完成 To Do / 运动 / 护肤 / 语法即算打卡）
   const weekCheck = new Set();
   const weekDays = [];
   for (let i = 6; i >= 0; i--) {
     const d = daysAgoStr(i);
     const on = state.todo.some(g => g.date === d && g.tasks.some(t => t.done)) ||
       state.life.fitness.some(g => g.date === d && g.tasks.some(t => t.done)) ||
-      state.skincare.cats.some(c => c.doneDates.includes(d));
+      state.skincare.cats.some(c => c.doneDates.includes(d)) ||
+      state.grammar.books.some(b => b.chapters.some(c => (c.checkins || []).includes(d)));
     if (on) weekCheck.add(d);
     weekDays.push({ d, dow: weekDay(d), on, isToday: d === todayStr() });
   }
   const checkCount = weekCheck.size;
   const pct = Math.round(checkCount / 7 * 100);
+
+  // 各模块本周打卡明细
+  const detailModules = ["todo", "life", "skincare", "grammar"];
+  const detailHTML = `<div class="mc-list-title">各模块打卡明细</div>` + detailModules.map(mid => {
+    const m = MODULES.find(x => x.id === mid);
+    const days = moduleWeekCheckedDays(mid);
+    return `<div class="mc-row">
+      <span class="mc-name">${m.icon} ${esc(m.title)}</span>
+      <span class="mc-dots">${weekDays.map(x => `<i class="${days.has(x.d) ? "on" : ""}"></i>`).join("")}</span>
+      <span class="mc-num">${days.size}/7</span>
+    </div>`;
+  }).join("");
+
   const progressHTML = `
     <div class="card">
       <div class="card-head">
@@ -512,6 +526,7 @@ function renderModules() {
           <div class="pbar"><i style="width:${pct}%"></i></div>
           <div class="wp-text">本周已打卡 ${checkCount} 天，完成度 ${pct}%</div>
         </div>
+        <div class="mc-list">${detailHTML}</div>
       </div>
     </div>`;
 
@@ -527,7 +542,7 @@ function renderModules() {
       </button>`;
     }).join("")}
   </div>`;
-  main.querySelectorAll("[data-module]").forEach(b => b.onclick = () => openModuleModal(b.dataset.module));
+  main.querySelectorAll("[data-module]").forEach(b => b.onclick = () => renderModulePage(b.dataset.module, renderModules, "‹ 模块"));
 }
 function moduleBadge(id) {
   const today = todayStr();
@@ -547,6 +562,22 @@ function weekDaysSet() {
   const s = new Set();
   for (let i = 0; i < 7; i++) s.add(daysAgoStr(i));
   return s;
+}
+/* 返回某模块本周（最近 7 天）具体哪几天打卡了（仅对有每日打卡语义的模块） */
+function moduleWeekCheckedDays(id) {
+  const last7 = weekDaysSet();
+  const days = new Set();
+  if (id === "todo") {
+    state.todo.forEach(g => { if (last7.has(g.date) && g.tasks.some(t => t.done)) days.add(g.date); });
+  } else if (id === "life") {
+    state.life.fitness.forEach(g => { if (last7.has(g.date) && g.tasks.some(t => t.done)) days.add(g.date); });
+    state.life.diet.forEach(g => { if (last7.has(g.date) && (g.items || []).length) days.add(g.date); });
+  } else if (id === "skincare") {
+    state.skincare.cats.forEach(c => c.doneDates.forEach(d => { if (last7.has(d)) days.add(d); }));
+  } else if (id === "grammar") {
+    state.grammar.books.forEach(b => b.chapters.forEach(c => (c.checkins || []).forEach(d => { if (last7.has(d)) days.add(d); })));
+  }
+  return days;
 }
 function moduleProgress(id) {
   const last7 = weekDaysSet();
@@ -607,27 +638,20 @@ function moduleProgress(id) {
   return { pct: 0, text: "" };
 }
 
-function openModuleModal(id) {
+function renderModulePage(id, backFn, backLabel) {
   const m = MODULES.find(x => x.id === id);
   if (!m) return;
-  const root = document.getElementById("modal-root");
-  root.innerHTML = `<div class="modal-backdrop" data-back>
-    <div class="modal" style="max-height:86vh;width:min(520px,94%)">
-      <div class="modal-head">
-        <span>${m.icon} ${esc(m.title)}</span>
-        <span class="modal-actions">
-          <button class="modal-rec" data-rec>📋 记录</button>
-          <a class="modal-x" data-close>×</a>
-        </span>
-      </div>
-      <div class="modal-body" id="module-modal-body"></div>
+  const main = document.getElementById("app-main");
+  main.innerHTML = `
+    <div class="mp-head">
+      <button class="mp-back" id="mp-back">${backLabel || "‹ 返回"}</button>
+      <span class="mp-title">${m.icon} ${esc(m.title)}</span>
+      <button class="mp-rec" id="mp-rec">📋 记录</button>
     </div>
-  </div>`;
-  const backdrop = root.querySelector(".modal-backdrop");
-  const body = root.querySelector("#module-modal-body");
-  backdrop.querySelector("[data-close]").onclick = () => (root.innerHTML = "");
-  backdrop.onclick = (e) => { if (e.target === backdrop) root.innerHTML = ""; };
-  backdrop.querySelector("[data-rec]").onclick = () => showModuleRecords(id, body, () => m.render(body));
+    <div class="mp-body" id="mp-body"></div>`;
+  const body = main.querySelector("#mp-body");
+  main.querySelector("#mp-back").onclick = () => { if (typeof backFn === "function") backFn(); else renderModules(); };
+  main.querySelector("#mp-rec").onclick = () => showModuleRecords(id, body, () => m.render(body));
   m.render(body);
 }
 function showModuleRecords(id, body, back) {
