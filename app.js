@@ -304,6 +304,27 @@ const MODULES = [
   { id: "skincare", title: "每日护肤", icon: "🧴", render: renderSkincare }
 ];
 
+/* ---------- 倒计时计算工具 ---------- */
+function cdTarget(d) { return new Date((d.date || "") + "T" + (d.time || "00:00:00")); }
+function cdParts(ms) {
+  const past = ms < 0, a = Math.abs(ms);
+  const days = Math.floor(a / 86400000);
+  const hours = Math.floor((a % 86400000) / 3600000);
+  const minutes = Math.floor((a % 3600000) / 60000);
+  const seconds = Math.floor((a % 60000) / 1000);
+  return { past, days, hours, minutes, seconds };
+}
+function cdTimerHTML(ms) {
+  const p = cdParts(ms), pad = n => String(n).padStart(2, "0");
+  if (p.past) return `<span class="cd-big">已过去</span><span class="cd-sub">${p.days}天 ${pad(p.hours)}:${pad(p.minutes)}:${pad(p.seconds)}</span>`;
+  return `<span class="cd-big">${p.days}<small>天</small></span><span class="cd-sub">${pad(p.hours)}:${pad(p.minutes)}:${pad(p.seconds)}</span>`;
+}
+function nearestCountdown() {
+  const now = Date.now(); let best = null, bd = Infinity;
+  (state.countdowns || []).forEach(d => { const diff = cdTarget(d).getTime() - now; if (diff < bd) { bd = diff; best = d; } });
+  return best ? { d: best, diff: bd } : null;
+}
+
 /* ---------- 首页 ---------- */
 function renderHome() {
   const main = document.getElementById("app-main");
@@ -341,7 +362,24 @@ function renderHome() {
     weekDays.push({ d, dow: weekDay(d), dom: d.slice(8), active, isToday: d === today });
   }
 
-  main.innerHTML = `
+  // 顶部可视化：倒计时（实时跳动，点它即可设置你自己的目标时间）
+  const nn = nearestCountdown();
+  let cdHeroHTML;
+  if (nn) {
+    cdHeroHTML = `<div class="cd-hero" data-module="countdown" id="cd-hero">
+      <div class="cd-hero-label">⏳ ${esc(nn.d.title)}</div>
+      <div class="cd-hero-time" id="cd-timer">${cdTimerHTML(nn.diff)}</div>
+      <div class="cd-hero-hint">${nn.diff < 0 ? "已结束 · 点击修改" : "点击修改 / 添加更多"}</div>
+    </div>`;
+  } else {
+    cdHeroHTML = `<div class="cd-hero empty" data-module="countdown" id="cd-hero">
+      <div class="cd-hero-label">⏳ 倒计时</div>
+      <div class="cd-hero-time" id="cd-timer">点击设置你的目标时间</div>
+      <div class="cd-hero-hint">如：考试 / 出国 / 生日</div>
+    </div>`;
+  }
+
+  main.innerHTML = cdHeroHTML + `
     <div class="stat-grid">
       <div class="stat-card"><div class="emoji">🏃</div><div class="value">${fitCount}<small>/${Math.max(3, fitCount)}</small></div><div class="label">今日运动</div></div>
       <div class="stat-card"><div class="emoji">🍱</div><div class="value">${kcal}</div><div class="label">摄入 kcal</div></div>
@@ -370,6 +408,17 @@ function renderHome() {
   `;
 
   main.querySelectorAll("[data-module]").forEach(el => el.onclick = () => openModuleModal(el.dataset.module));
+
+  // 顶部倒计时实时跳动（每秒刷新）
+  if (homeTickTimer) { clearInterval(homeTickTimer); homeTickTimer = null; }
+  if (nearestCountdown()) {
+    homeTickTimer = setInterval(() => {
+      const el = document.getElementById("cd-timer");
+      if (!el) { clearInterval(homeTickTimer); homeTickTimer = null; return; }
+      const n = nearestCountdown();
+      if (n) el.innerHTML = cdTimerHTML(n.diff);
+    }, 1000);
+  }
 }
 function renderQuickRow(icon, title, sub, id) {
   return `<div class="quick-row" data-module="${id}">
@@ -580,7 +629,9 @@ function openThemePicker() {
    标签切换
    ========================================================================= */
 let currentTab = "home";
+let homeTickTimer = null;
 function switchTab(tab) {
+  if (homeTickTimer) { clearInterval(homeTickTimer); homeTickTimer = null; }
   currentTab = tab;
   document.querySelectorAll(".tab-item").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
   if (tab === "home") renderHome();
@@ -599,23 +650,28 @@ function setupTabs() {
 /* ---------- 倒计时 ---------- */
 function renderCountdown(c) {
   c.innerHTML = `
+    <div class="muted">设置你重要的日子，顶栏会实时倒计时。可添加多个，最近的显示在首页最上方。</div>
     <div class="form-grid">
       <input placeholder="事件名称，如 韩国入学" id="cd-title" />
       <input type="date" id="cd-date" />
+      <input type="time" id="cd-time" />
       <button class="btn full" id="cd-add">+ 添加倒计时</button>
     </div>
     <div class="list" id="cd-list"></div>`;
   const listEl = c.querySelector("#cd-list");
+  const pad = n => String(n).padStart(2, "0");
   function draw() {
     if (!state.countdowns.length) { listEl.innerHTML = `<div class="empty">添加一个重要的日子吧 ✨</div>`; return; }
-    listEl.innerHTML = state.countdowns.map(d => {
-      const days = Math.ceil((new Date(d.date + "T00:00:00") - new Date(todayStr() + "T00:00:00")) / 86400000);
-      const txt = days > 0 ? `<span class="countdown-big">${days}<small> 天后</small></span>`
-        : days === 0 ? `<span class="countdown-big">就是<small> 今天</small></span>`
-          : `<span class="countdown-big" style="color:var(--ink-soft)">已过去 ${-days}<small> 天</small></span>`;
+    listEl.innerHTML = state.countdowns.slice().sort((a, b) => cdTarget(a) - cdTarget(b)).map(d => {
+      const diff = cdTarget(d).getTime() - Date.now();
+      const p = cdParts(diff);
+      const rem = p.past
+        ? `已过去 ${p.days}天 ${pad(p.hours)}:${pad(p.minutes)}:${pad(p.seconds)}`
+        : `${p.days}天 ${pad(p.hours)}:${pad(p.minutes)}:${pad(p.seconds)} 后`;
       return `<div class="item"><button class="del" data-del="${d.id}">×</button>
         <div style="font-weight:700">${esc(d.title)}</div>
-        <div class="muted">${esc(d.date)}</div>${txt}</div>`;
+        <div class="muted">${esc(d.date)}${d.time ? (" " + esc(d.time)) : ""}</div>
+        <div class="countdown-big" style="${p.past ? "color:var(--ink-soft)" : ""}">${rem}</div></div>`;
     }).join("");
     listEl.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
       state.countdowns = state.countdowns.filter(x => x.id !== b.dataset.del); save(); draw();
@@ -626,8 +682,9 @@ function renderCountdown(c) {
     const title = c.querySelector("#cd-title").value.trim();
     const date = c.querySelector("#cd-date").value;
     if (!title || !date) return toast("请填写名称和日期");
-    state.countdowns.push({ id: uid(), title, date });
-    save(); c.querySelector("#cd-title").value = ""; c.querySelector("#cd-date").value = ""; draw(); renderHeader();
+    const time = c.querySelector("#cd-time").value || "00:00";
+    state.countdowns.push({ id: uid(), title, date, time });
+    save(); c.querySelector("#cd-title").value = ""; c.querySelector("#cd-date").value = ""; c.querySelector("#cd-time").value = ""; draw(); renderHeader();
   };
 }
 

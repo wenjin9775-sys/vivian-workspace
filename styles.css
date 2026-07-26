@@ -353,9 +353,23 @@ button{font-family:var(--font);cursor:pointer;}
 .me-item .text{flex:1;font-size:14px;font-weight:700;}
 .me-item .arrow{color:var(--ink-soft);}
 
+/* 顶部倒计时可视化控件 */
+.cd-hero{border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;
+  box-shadow:0 8px 22px rgba(236,72,153,.25);cursor:pointer;}
+.cd-hero-label{font-size:14px;font-weight:700;opacity:.95;}
+.cd-hero-time{margin-top:8px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+.cd-big{font-size:30px;font-weight:800;line-height:1;}
+.cd-big small{font-size:14px;font-weight:700;margin-left:2px;}
+.cd-sub{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;}
+.cd-hero-hint{margin-top:8px;font-size:11px;opacity:.9;}
+.cd-hero.empty{background:var(--card);color:var(--ink);box-shadow:var(--shadow);border:1px dashed var(--accent);}
+.cd-hero.empty .cd-hero-time{display:block;font-size:16px;font-weight:700;color:var(--accent-deep);}
+.cd-hero.empty .cd-hero-hint{color:var(--ink-soft);}
+
 /* 响应式：桌面也限制为手机宽度 */
 @media (min-width:520px){
-  body{background:#e8f5ee;}
+  body{background:#fce7f3;}
   #app{box-shadow:0 0 60px rgba(0,0,0,.08);}
 }
 
