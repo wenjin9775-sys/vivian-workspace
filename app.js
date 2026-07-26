@@ -96,7 +96,11 @@ function renderDateStrip(container, selectedDate, dates, onSelect) {
         </button>`;
       }).join("")}
     </div>`;
-  container.querySelectorAll("[data-ds]").forEach(b => b.onclick = () => onSelect(b.dataset.ds));
+  container.querySelectorAll("[data-ds]").forEach(b => b.onclick = () => {
+    const d = b.dataset.ds;
+    onSelect(d);
+    renderDateStrip(container, d, dates, onSelect); // 重绘日期条，让高亮跟随移动
+  });
 }
 
 /* ---------- IndexedDB（图片） ---------- */
