@@ -60,6 +60,15 @@ function daysAgoStr(n) {
   const d = new Date(Date.now() - n * 86400000); const off = d.getTimezoneOffset();
   return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10);
 }
+function dateAddStr(d, n) {
+  const date = new Date(d + "T00:00:00"); date.setDate(date.getDate() + n); const off = date.getTimezoneOffset();
+  return new Date(date.getTime() - off * 60000).toISOString().slice(0, 10);
+}
+function last7Days(anchor) {
+  const arr = [];
+  for (let i = 6; i >= 0; i--) arr.push(dateAddStr(anchor, -i));
+  return arr;
+}
 function monthKey() { return todayStr().slice(0, 7); }
 function money(n) { return "¥" + (Number(n) || 0).toLocaleString("zh-CN", { maximumFractionDigits: 2 }); }
 function toast(msg) {
@@ -72,6 +81,22 @@ function formatDate(d) {
 }
 function weekDay(d) {
   return ["日","一","二","三","四","五","六"][new Date(d).getDay()];
+}
+/* 渲染可点击的 7 天日期条（类似首页本周打卡） */
+function renderDateStrip(container, selectedDate, dates, onSelect) {
+  container.innerHTML = `
+    <div class="ds-bar">
+      ${dates.map(d => {
+        const dom = d.slice(8, 10);
+        const isToday = d === todayStr();
+        const sel = d === selectedDate;
+        return `<button class="ds-day ${isToday ? "today" : ""} ${sel ? "selected" : ""}" data-ds="${d}">
+          <span class="ds-dow">${weekDay(d)}</span>
+          <span class="ds-dom">${dom}</span>
+        </button>`;
+      }).join("")}
+    </div>`;
+  container.querySelectorAll("[data-ds]").forEach(b => b.onclick = () => onSelect(b.dataset.ds));
 }
 
 /* ---------- IndexedDB（图片） ---------- */
@@ -224,6 +249,13 @@ function migrate() {
     const map = {};
     state.life.fitness.forEach(f => { (map[f.date] = map[f.date] || []).push({ id: f.id || uid(), text: f.text, done: false }); });
     state.life.fitness = Object.entries(map).map(([date, tasks]) => ({ date, tasks }));
+  }
+  // 2026-07-27: 文书/签证从平铺列表改为「学校/类别 → 材料/步骤」分组
+  if (state.applications && state.applications.length && !state.applications[0].materials) {
+    state.applications = [{ id: uid(), name: "默认学校", materials: state.applications }];
+  }
+  if (state.visa && state.visa.length && !state.visa[0].items) {
+    state.visa = [{ id: uid(), name: "默认签证", items: state.visa }];
   }
 }
 
@@ -621,14 +653,16 @@ function moduleProgress(id) {
       return { pct: Math.min(100, n * 10), text: `${n} 篇日记` };
     }
     case "applications": {
-      const total = state.applications.length;
-      const done = state.applications.filter(a => a.status === "已完成").length;
-      return total ? { pct: Math.round(done / total * 100), text: `${done}/${total} 完成` } : { pct: 0, text: "未添加" };
+      const all = state.applications.flatMap(s => s.materials || []);
+      const total = all.length;
+      const done = all.filter(m => m.status === "已完成").length;
+      return total ? { pct: Math.round(done / total * 100), text: `${done}/${total} 材料` } : { pct: 0, text: "未添加" };
     }
     case "visa": {
-      const total = state.visa.length;
-      const done = state.visa.filter(v => v.status === "已完成").length;
-      return total ? { pct: Math.round(done / total * 100), text: `${done}/${total} 步` } : { pct: 0, text: "未添加" };
+      const all = state.visa.flatMap(v => v.items || []);
+      const total = all.length;
+      const done = all.filter(i => i.status === "已完成").length;
+      return total ? { pct: Math.round(done / total * 100), text: `${done}/${total} 步骤` } : { pct: 0, text: "未添加" };
     }
     case "countdown": {
       const n = (state.countdowns || []).length;
@@ -707,12 +741,18 @@ function moduleRecordsHTML(id) {
       return state.gratitude.map(n => `<div class="rec-item"><b>${esc(n.text || "")}</b><span>${esc(n.date || "")}</span></div>`).join("");
     }
     case "applications": {
-      if (!state.applications.length) return `<div class="empty">还没有添加材料</div>`;
-      return state.applications.map(a => `<div class="rec-item"><b>${esc(a.name)}</b><span>${esc(a.status || "")}</span></div>`).join("");
+      if (!state.applications.length) return `<div class="empty">还没有添加学校</div>`;
+      return state.applications.map(s => {
+        const materials = (s.materials || []).map(m => `<div>${esc(m.name)} · ${esc(m.status || "")}</div>`).join("");
+        return `<div class="rec-item"><b>${esc(s.name)}</b><div class="rec-body">${materials || "还没有材料"}</div></div>`;
+      }).join("");
     }
     case "visa": {
-      if (!state.visa.length) return `<div class="empty">还没有添加步骤</div>`;
-      return state.visa.map(v => `<div class="rec-item"><b>${esc(v.name)}</b><span>${esc(v.status || "")}</span></div>`).join("");
+      if (!state.visa.length) return `<div class="empty">还没有添加签证</div>`;
+      return state.visa.map(v => {
+        const items = (v.items || []).map(i => `<div>${esc(i.name)} · ${esc(i.status || "")}</div>`).join("");
+        return `<div class="rec-item"><b>${esc(v.name)}</b><div class="rec-body">${items || "还没有步骤"}</div></div>`;
+      }).join("");
     }
     case "skincare": {
       const rows = state.skincare.cats.filter(c => c.doneDates.length).map(c => ({ name: c.name, n: c.doneDates.length }));
@@ -1302,212 +1342,197 @@ function currentLessonLabel() {
 
 /* ---------- To Do ---------- */
 function renderTodo(c) {
+  let selected = todayStr();
+  const dates = last7Days(selected);
   c.innerHTML = `
+    <div class="ds-wrap" id="td-ds"></div>
     <div class="form-grid">
-      <input type="date" id="td-date" value="${todayStr()}" />
       <input placeholder="添加一项任务…" id="td-text" />
       <button class="btn full" id="td-add">+ 添加任务</button>
     </div>
     <div class="list" id="td-list"></div>`;
   const listEl = c.querySelector("#td-list");
-  function findGroup(date) {
+  renderDateStrip(c.querySelector("#td-ds"), selected, dates, (d) => { selected = d; draw(); });
+  function getGroup(date) { return state.todo.find(x => x.date === date); }
+  function ensureGroup(date) {
     let g = state.todo.find(x => x.date === date);
     if (!g) { g = { date, tasks: [] }; state.todo.push(g); }
     return g;
   }
   function draw() {
-    if (!state.todo.length) { listEl.innerHTML = `<div class="empty">还没有任务，添加一条吧</div>`; return; }
-    const groups = [...state.todo].sort((a, b) => b.date.localeCompare(a.date));
-    listEl.innerHTML = groups.map(g => {
-      const total = g.tasks.length;
-      const done = g.tasks.filter(t => t.done).length;
-      const pct = total ? Math.round(done / total * 100) : 0;
-      const tasks = [...g.tasks].sort((a, b) => a.done - b.done).map(t => `<div class="item" style="padding:7px 10px;display:flex;gap:9px;align-items:flex-start">
-        <input type="checkbox" data-task="${g.date}|${t.id}" ${t.done ? "checked" : ""} style="width:17px;height:17px;accent-color:var(--accent);margin-top:2px;flex:none"/>
-        <span style="${t.done ? "text-decoration:line-through;color:var(--ink-soft)" : ""};font-size:13px;flex:1">${esc(t.text)}</span>
-        <button class="del" data-deltask="${g.date}|${t.id}">×</button>
-      </div>`).join("");
-      return `<div class="item" style="border-left:3px solid var(--accent)">
+    const g = getGroup(selected);
+    const total = g ? g.tasks.length : 0;
+    const done = g ? g.tasks.filter(t => t.done).length : 0;
+    if (!total) { listEl.innerHTML = `<div class="empty">${selected === todayStr() ? "今天还没有任务" : "这一天还没有任务"}</div>`; return; }
+    const pct = Math.round(done / total * 100);
+    listEl.innerHTML = `
+      <div class="item" style="border-left:3px solid var(--accent);margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-          <b style="font-size:13px">📅 ${esc(g.date)}</b>
+          <b style="font-size:13px">📅 ${esc(selected)}</b>
           <span class="chip">${done}/${total}</span>
-          <button class="del" data-delgroup="${g.date}">×</button>
         </div>
         <div class="pbar" style="margin:6px 0"><i style="width:${pct}%"></i></div>
-        ${tasks}
-      </div>`;
-    }).join("");
+      </div>
+      ${g.tasks.sort((a, b) => a.done - b.done).map(t => `<div class="item" style="padding:7px 10px;display:flex;gap:9px;align-items:flex-start">
+        <input type="checkbox" data-task="${selected}|${t.id}" ${t.done ? "checked" : ""} style="width:17px;height:17px;accent-color:var(--accent);margin-top:2px;flex:none"/>
+        <span style="${t.done ? "text-decoration:line-through;color:var(--ink-soft)" : ""};font-size:13px;flex:1">${esc(t.text)}</span>
+        <button class="del" data-deltask="${selected}|${t.id}">×</button>
+      </div>`).join("")}`;
     listEl.querySelectorAll("[data-task]").forEach(b => b.onchange = () => {
       const [d, iid] = b.dataset.task.split("|");
-      const g = state.todo.find(x => x.date === d); const t = g && g.tasks.find(x => x.id === iid);
+      const gg = state.todo.find(x => x.date === d); const t = gg && gg.tasks.find(x => x.id === iid);
       if (t) { t.done = b.checked; save(); draw(); renderHeader(); }
     });
     listEl.querySelectorAll("[data-deltask]").forEach(b => b.onclick = () => {
       const [d, iid] = b.dataset.deltask.split("|");
-      const g = state.todo.find(x => x.date === d);
-      if (g) { g.tasks = g.tasks.filter(x => x.id !== iid); if (!g.tasks.length) state.todo = state.todo.filter(x => x.date !== d); save(); draw(); renderHeader(); }
-    });
-    listEl.querySelectorAll("[data-delgroup]").forEach(b => b.onclick = () => {
-      state.todo = state.todo.filter(x => x.date !== b.dataset.delgroup); save(); draw(); renderHeader();
+      const gg = state.todo.find(x => x.date === d);
+      if (gg) { gg.tasks = gg.tasks.filter(x => x.id !== iid); if (!gg.tasks.length) state.todo = state.todo.filter(x => x.date !== d); save(); draw(); renderHeader(); }
     });
   }
   draw();
   c.querySelector("#td-add").onclick = () => {
-    const date = c.querySelector("#td-date").value;
     const text = c.querySelector("#td-text").value.trim();
     if (!text) return toast("请输入任务");
-    findGroup(date).tasks.push({ id: uid(), text, done: false });
+    ensureGroup(selected).tasks.push({ id: uid(), text, done: false });
     save(); c.querySelector("#td-text").value = ""; draw(); renderHeader();
   };
 }
 
 /* ---------- 生活区 ---------- */
 function renderLife(c) {
+  let selected = todayStr();
+  const dates = last7Days(selected);
   c.innerHTML = `
-  <div class="muted" style="font-weight:700;margin-bottom:4px">🏃 健身运动（按日期，多项可勾选）</div>
-  <div class="form-grid">
-    <input type="date" id="fit-date" value="${todayStr()}" />
-    <input placeholder="训练项目，如 跑步30分钟" id="fit-text" />
-    <button class="btn full" id="fit-add">+ 添加项目</button>
-  </div>
-  <div class="list" id="fit-list"></div>
-
-  <div class="muted" style="font-weight:700;margin:14px 0 4px">⚖️ 体重记录</div>
-  <div class="form-grid">
-    <input type="number" step="0.1" placeholder="体重 kg" id="wt-val" />
-    <input type="date" id="wt-date" value="${todayStr()}" />
-    <button class="btn full" id="wt-add">记录体重</button>
-  </div>
-  <div id="wt-chart" style="margin:8px 0"></div>
-  <div class="list" id="wt-list"></div>
-
-  <div class="muted" style="font-weight:700;margin:14px 0 4px">🍱 饮食记录（自动算卡路里）</div>
-  <div class="form-grid">
-    <input type="date" id="diet-date" value="${todayStr()}" />
-    <input placeholder="食物名" id="diet-name" />
-    <input type="number" placeholder="卡路里 kcal" id="diet-kcal" />
-    <button class="btn full" id="diet-add">+ 添加食物</button>
-    <button class="btn ghost full" id="diet-pic">📷 上传今日饮食图</button>
-  </div>
-  <div class="list" id="diet-list"></div>`;
-
+    <div class="ds-wrap" id="life-ds"></div>
+    <div class="muted" style="font-weight:700;margin-bottom:4px">🏃 健身运动</div>
+    <div class="form-grid">
+      <input placeholder="训练项目，如 跑步30分钟" id="fit-text" />
+      <button class="btn full" id="fit-add">+ 添加项目</button>
+    </div>
+    <div class="list" id="fit-list"></div>
+    <div class="muted" style="font-weight:700;margin:14px 0 4px">⚖️ 体重记录</div>
+    <div class="form-grid">
+      <input type="number" step="0.1" placeholder="体重 kg" id="wt-val" />
+      <button class="btn full" id="wt-add">记录体重</button>
+    </div>
+    <div id="wt-chart" style="margin:8px 0"></div>
+    <div class="list" id="wt-list"></div>
+    <div class="muted" style="font-weight:700;margin:14px 0 4px">🍱 饮食记录（自动算卡路里）</div>
+    <div class="form-grid">
+      <input placeholder="食物名" id="diet-name" />
+      <input type="number" placeholder="卡路里 kcal" id="diet-kcal" />
+      <button class="btn full" id="diet-add">+ 添加食物</button>
+      <button class="btn ghost full" id="diet-pic">📷 上传今日饮食图</button>
+    </div>
+    <div class="list" id="diet-list"></div>`;
+  renderDateStrip(c.querySelector("#life-ds"), selected, dates, (d) => { selected = d; drawAll(); });
   const fitList = c.querySelector("#fit-list");
-  function findFitGroup(date) {
+  function getFitGroup(date) { return state.life.fitness.find(x => x.date === date); }
+  function ensureFitGroup(date) {
     let g = state.life.fitness.find(x => x.date === date);
     if (!g) { g = { date, tasks: [] }; state.life.fitness.push(g); }
     return g;
   }
   function drawFit() {
-    if (!state.life.fitness.length) { fitList.innerHTML = `<div class="empty">还没有训练记录</div>`; return; }
-    const groups = [...state.life.fitness].sort((a, b) => b.date.localeCompare(a.date));
-    fitList.innerHTML = groups.map(g => {
-      const total = g.tasks.length;
-      const done = g.tasks.filter(t => t.done).length;
-      const pct = total ? Math.round(done / total * 100) : 0;
-      const tasks = [...g.tasks].sort((a, b) => a.done - b.done).map(t => `<div class="item" style="padding:7px 10px;display:flex;gap:9px;align-items:flex-start">
-        <input type="checkbox" data-ftask="${g.date}|${t.id}" ${t.done ? "checked" : ""} style="width:17px;height:17px;accent-color:var(--accent);margin-top:2px;flex:none"/>
-        <span style="${t.done ? "text-decoration:line-through;color:var(--ink-soft)" : ""};font-size:13px;flex:1">${esc(t.text)}</span>
-        <button class="del" data-fdeltask="${g.date}|${t.id}">×</button>
-      </div>`).join("");
-      return `<div class="item" style="border-left:3px solid var(--accent)">
+    const g = getFitGroup(selected);
+    const total = g ? g.tasks.length : 0;
+    const done = g ? g.tasks.filter(t => t.done).length : 0;
+    if (!total) { fitList.innerHTML = `<div class="empty">${selected === todayStr() ? "今天还没有运动记录" : "这一天还没有运动记录"}</div>`; return; }
+    const pct = Math.round(done / total * 100);
+    fitList.innerHTML = `
+      <div class="item" style="border-left:3px solid var(--accent);margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-          <b style="font-size:13px">📅 ${esc(g.date)}</b>
+          <b style="font-size:13px">📅 ${esc(selected)}</b>
           <span class="chip">${done}/${total}</span>
-          <button class="del" data-fdelgroup="${g.date}">×</button>
         </div>
         <div class="pbar" style="margin:6px 0"><i style="width:${pct}%"></i></div>
-        ${tasks}
-      </div>`;
-    }).join("");
+      </div>
+      ${g.tasks.sort((a, b) => a.done - b.done).map(t => `<div class="item" style="padding:7px 10px;display:flex;gap:9px;align-items:flex-start">
+        <input type="checkbox" data-ftask="${selected}|${t.id}" ${t.done ? "checked" : ""} style="width:17px;height:17px;accent-color:var(--accent);margin-top:2px;flex:none"/>
+        <span style="${t.done ? "text-decoration:line-through;color:var(--ink-soft)" : ""};font-size:13px;flex:1">${esc(t.text)}</span>
+        <button class="del" data-fdeltask="${selected}|${t.id}">×</button>
+      </div>`).join("")}`;
     fitList.querySelectorAll("[data-ftask]").forEach(b => b.onchange = () => {
       const [d, iid] = b.dataset.ftask.split("|");
-      const g = state.life.fitness.find(x => x.date === d); const t = g && g.tasks.find(x => x.id === iid);
-      if (t) { t.done = b.checked; save(); renderHeader(); drawFit(); }
+      const gg = state.life.fitness.find(x => x.date === d); const t = gg && gg.tasks.find(x => x.id === iid);
+      if (t) { t.done = b.checked; save(); renderHeader(); drawAll(); }
     });
     fitList.querySelectorAll("[data-fdeltask]").forEach(b => b.onclick = () => {
       const [d, iid] = b.dataset.fdeltask.split("|");
-      const g = state.life.fitness.find(x => x.date === d);
-      if (g) { g.tasks = g.tasks.filter(x => x.id !== iid); if (!g.tasks.length) state.life.fitness = state.life.fitness.filter(x => x.date !== d); save(); renderHeader(); drawFit(); }
-    });
-    fitList.querySelectorAll("[data-fdelgroup]").forEach(b => b.onclick = () => {
-      state.life.fitness = state.life.fitness.filter(x => x.date !== b.dataset.fdelgroup); save(); renderHeader(); drawFit();
+      const gg = state.life.fitness.find(x => x.date === d);
+      if (gg) { gg.tasks = gg.tasks.filter(x => x.id !== iid); if (!gg.tasks.length) state.life.fitness = state.life.fitness.filter(x => x.date !== d); save(); renderHeader(); drawAll(); }
     });
   }
-  drawFit();
-  c.querySelector("#fit-add").onclick = () => {
-    const date = c.querySelector("#fit-date").value;
-    const text = c.querySelector("#fit-text").value.trim();
-    if (!text) return toast("写点训练内容吧");
-    findFitGroup(date).tasks.push({ id: uid(), text, done: false });
-    save(); c.querySelector("#fit-text").value = ""; renderHeader(); drawFit();
-  };
-
   const wtList = c.querySelector("#wt-list");
   const wtChart = c.querySelector("#wt-chart");
   function drawWt() {
     const arr = [...state.life.weight].sort((a, b) => a.date.localeCompare(b.date));
     wtChart.innerHTML = sparklineBig(arr.map(x => ({ d: x.date, v: Number(x.weight) })));
-    wtList.innerHTML = arr.length ? arr.slice().reverse().slice(0, 6).map(w => `<div class="item" style="display:flex;justify-content:space-between;align-items:center">
+    const w = state.life.weight.find(x => x.date === selected);
+    if (!w) { wtList.innerHTML = `<div class="empty">${selected === todayStr() ? "今天还没有记录体重" : "这一天还没有记录体重"}</div>`; return; }
+    wtList.innerHTML = `<div class="item" style="display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:13px">${esc(w.date)}</span><b>${w.weight} kg</b>
-      <button class="del" data-del="${w.id}">×</button></div>`).join("")
-      : `<div class="empty">记录体重看趋势</div>`;
+      <button class="del" data-del="${w.id}">×</button></div>`;
     wtList.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
-      state.life.weight = state.life.weight.filter(x => x.id !== b.dataset.del); save(); renderHeader(); drawWt();
+      state.life.weight = state.life.weight.filter(x => x.id !== b.dataset.del); save(); renderHeader(); drawAll();
     });
   }
-  drawWt();
-  c.querySelector("#wt-add").onclick = () => {
-    const v = parseFloat(c.querySelector("#wt-val").value); const date = c.querySelector("#wt-date").value;
-    if (isNaN(v)) return toast("请输入体重");
-    const ex = state.life.weight.find(x => x.date === date);
-    if (ex) ex.weight = v; else state.life.weight.push({ id: uid(), weight: v, date });
-    save(); c.querySelector("#wt-val").value = ""; renderHeader(); drawWt();
+  c.querySelector("#fit-add").onclick = () => {
+    const text = c.querySelector("#fit-text").value.trim();
+    if (!text) return toast("写点训练内容吧");
+    ensureFitGroup(selected).tasks.push({ id: uid(), text, done: false });
+    save(); c.querySelector("#fit-text").value = ""; renderHeader(); drawAll();
   };
-
+  c.querySelector("#wt-add").onclick = () => {
+    const v = parseFloat(c.querySelector("#wt-val").value);
+    if (isNaN(v)) return toast("请输入体重");
+    const ex = state.life.weight.find(x => x.date === selected);
+    if (ex) ex.weight = v; else state.life.weight.push({ id: uid(), weight: v, date: selected });
+    save(); c.querySelector("#wt-val").value = ""; renderHeader(); drawAll();
+  };
   const dietList = c.querySelector("#diet-list");
-  function findDay(date) { let d = state.life.diet.find(x => x.date === date); if (!d) { d = { id: uid(), date, items: [], img: null }; state.life.diet.push(d); } return d; }
+  function getDietDay(date) { return state.life.diet.find(x => x.date === date); }
+  function ensureDietDay(date) {
+    let d = state.life.diet.find(x => x.date === date);
+    if (!d) { d = { id: uid(), date, items: [], img: null }; state.life.diet.push(d); }
+    return d;
+  }
   function drawDiet() {
-    const arr = [...state.life.diet].sort((a, b) => b.date.localeCompare(a.date));
-    if (!arr.length) { dietList.innerHTML = `<div class="empty">还没有饮食记录</div>`; return; }
-    dietList.innerHTML = arr.map(day => {
-      const total = day.items.reduce((s, i) => s + (Number(i.kcal) || 0), 0);
-      const items = day.items.map(i => `<div class="item" style="padding:6px 10px;display:flex;align-items:center;gap:8px">
-        <button class="del" data-delitem="${day.id}|${i.id}">×</button>
-        <span style="flex:1;font-size:13px">${esc(i.name)} <b>${Number(i.kcal) || 0} kcal</b></span>
-        ${i.img ? `<span class="thumb" data-img="${i.img}"></span>` : ""}</div>`).join("");
-      return `<div class="item" style="border-left:3px solid var(--accent)">
+    const day = getDietDay(selected);
+    const total = day ? day.items.reduce((s, i) => s + (Number(i.kcal) || 0), 0) : 0;
+    if (!day || !day.items.length) { dietList.innerHTML = `<div class="empty">${selected === todayStr() ? "今天还没有饮食记录" : "这一天还没有饮食记录"}</div>`; return; }
+    dietList.innerHTML = `
+      <div class="item" style="border-left:3px solid var(--accent);margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <b style="font-size:13px">${esc(day.date)}</b>
+          <b style="font-size:13px">📅 ${esc(selected)}</b>
           <span class="chip">${total} kcal</span>
           ${day.img ? `<span class="thumb" data-img="${day.img}" style="width:40px;height:40px"></span>` : ""}
-          <button class="del" data-delday="${day.id}">×</button>
-        </div>${items}</div>`;
-    }).join("");
+        </div>
+      </div>
+      ${day.items.map(i => `<div class="item" style="padding:6px 10px;display:flex;align-items:center;gap:8px">
+        <button class="del" data-delitem="${day.id}|${i.id}">×</button>
+        <span style="flex:1;font-size:13px">${esc(i.name)} <b>${Number(i.kcal) || 0} kcal</b></span>
+        ${i.img ? `<span class="thumb" data-img="${i.img}"></span>` : ""}</div>`).join("")}`;
     hydrateImages(dietList);
     dietList.querySelectorAll("[data-delitem]").forEach(b => b.onclick = () => {
       const [did, iid] = b.dataset.delitem.split("|");
       const d = state.life.diet.find(x => x.id === did); if (d) d.items = d.items.filter(i => i.id !== iid);
-      save(); drawDiet(); renderHeader();
-    });
-    dietList.querySelectorAll("[data-delday]").forEach(b => b.onclick = () => {
-      state.life.diet = state.life.diet.filter(x => x.id !== b.dataset.delday); save(); drawDiet(); renderHeader();
+      save(); drawAll(); renderHeader();
     });
   }
-  drawDiet();
   c.querySelector("#diet-add").onclick = () => {
-    const date = c.querySelector("#diet-date").value;
     const name = c.querySelector("#diet-name").value.trim();
     const kcal = parseFloat(c.querySelector("#diet-kcal").value);
     if (!name) return toast("请输入食物名");
-    findDay(date).items.push({ id: uid(), name, kcal: isNaN(kcal) ? 0 : kcal, img: null });
-    save(); c.querySelector("#diet-name").value = ""; c.querySelector("#diet-kcal").value = ""; drawDiet(); renderHeader();
+    ensureDietDay(selected).items.push({ id: uid(), name, kcal: isNaN(kcal) ? 0 : kcal, img: null });
+    save(); c.querySelector("#diet-name").value = ""; c.querySelector("#diet-kcal").value = ""; drawAll(); renderHeader();
   };
   c.querySelector("#diet-pic").onclick = () => {
-    const date = c.querySelector("#diet-date").value;
-    uploadImage(id => { findDay(date).img = id; save(); drawDiet(); });
+    uploadImage(id => { ensureDietDay(selected).img = id; save(); drawAll(); });
   };
+  function drawAll() { drawFit(); drawWt(); drawDiet(); }
+  drawAll();
 }
-
 function sparklineBig(arr) {
   if (!arr.length) return `<div class="muted">记录体重看趋势</div>`;
   const w = 280, h = 60, vals = arr.map(x => x.v), max = Math.max(...vals), min = Math.min(...vals), span = max - min || 1;
@@ -1520,9 +1545,12 @@ function sparklineBig(arr) {
 
 /* ---------- 花销记录 ---------- */
 function renderExpense(c) {
+  let selected = todayStr();
+  const dates = last7Days(selected);
+  let pendingImg = null;
   c.innerHTML = `
+    <div class="ds-wrap" id="ex-ds"></div>
     <div class="form-grid">
-      <input type="date" id="ex-date" value="${todayStr()}" />
       <input placeholder="类别，如 餐饮" id="ex-cat" />
       <input type="number" step="0.01" placeholder="金额" id="ex-amt" />
       <input placeholder="备注" id="ex-note" />
@@ -1531,17 +1559,25 @@ function renderExpense(c) {
     </div>
     <div class="list" id="ex-list"></div>`;
   const listEl = c.querySelector("#ex-list");
-  let pendingImg = null;
+  renderDateStrip(c.querySelector("#ex-ds"), selected, dates, (d) => { selected = d; draw(); });
   function draw() {
-    const arr = [...state.expense].sort((a, b) => b.date.localeCompare(a.date));
-    if (!arr.length) { listEl.innerHTML = `<div class="empty">还没有花销记录</div>`; return; }
-    listEl.innerHTML = arr.map(e => `<div class="item">
-      <button class="del" data-del="${e.id}">×</button>
-      <div style="display:flex;justify-content:space-between;gap:8px;padding-right:16px">
-        <div style="font-size:13px"><b>${esc(e.category || "其他")}</b> · ${esc(e.note || "")}<br><span class="muted">${esc(e.date)}</span></div>
-        <b style="color:var(--accent-deep);white-space:nowrap">${money(e.amount)}</b>
+    const arr = state.expense.filter(e => e.date === selected).slice().reverse();
+    if (!arr.length) { listEl.innerHTML = `<div class="empty">${selected === todayStr() ? "今天还没有花销" : "这一天还没有花销"}</div>`; return; }
+    const total = arr.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    listEl.innerHTML = `
+      <div class="item" style="border-left:3px solid var(--accent);margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <b style="font-size:13px">📅 ${esc(selected)}</b>
+          <span class="chip">共 ${money(total)}</span>
+        </div>
       </div>
-      ${e.img ? `<div class="thumbs"><span class="thumb" data-img="${e.img}"></span></div>` : ""}</div>`).join("");
+      ${arr.map(e => `<div class="item">
+        <button class="del" data-del="${e.id}">×</button>
+        <div style="display:flex;justify-content:space-between;gap:8px;padding-right:16px">
+          <div style="font-size:13px"><b>${esc(e.category || "其他")}</b> · ${esc(e.note || "")}</div>
+          <b style="color:var(--accent-deep);white-space:nowrap">${money(e.amount)}</b>
+        </div>
+        ${e.img ? `<div class="thumbs"><span class="thumb" data-img="${e.img}"></span></div>` : ""}</div>`).join("")}`;
     hydrateImages(listEl);
     listEl.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
       state.expense = state.expense.filter(x => x.id !== b.dataset.del); save(); renderHeader(); draw();
@@ -1549,12 +1585,11 @@ function renderExpense(c) {
   }
   draw();
   c.querySelector("#ex-add").onclick = () => {
-    const date = c.querySelector("#ex-date").value;
     const category = c.querySelector("#ex-cat").value.trim();
     const amount = parseFloat(c.querySelector("#ex-amt").value);
     const note = c.querySelector("#ex-note").value.trim();
     if (isNaN(amount)) return toast("请输入金额");
-    state.expense.push({ id: uid(), date, category, amount, note, img: pendingImg });
+    state.expense.push({ id: uid(), date: selected, category, amount, note, img: pendingImg });
     pendingImg = null;
     save(); c.querySelector("#ex-amt").value = ""; c.querySelector("#ex-note").value = ""; c.querySelector("#ex-cat").value = ""; c.querySelector("#ex-pic").textContent = "📷 上传凭证图";
     renderHeader(); draw();
@@ -1563,159 +1598,236 @@ function renderExpense(c) {
     uploadImage(id => { pendingImg = id; toast("凭证图已附加，点记录即可保存"); c.querySelector("#ex-pic").textContent = "📷 已选图"; });
   };
 }
-
-/* ---------- 创作灵感 ---------- */
 function renderInspiration(c) {
+  let selected = todayStr();
+  const dates = last7Days(selected);
   c.innerHTML = `
-  <div class="muted" style="font-weight:700;margin-bottom:4px">📕 小红书灵感</div>
-  <div class="form-grid">
-    <input placeholder="标题" id="ins-x-title" />
-    <input type="date" id="ins-x-date" value="${todayStr()}" />
-    <textarea placeholder="内容 / 文案点子" id="ins-x-body" class="full"></textarea>
-    <button class="btn full" data-type="小红书" id="ins-x-add">+ 添加小红书灵感</button>
-  </div>
-  <div class="list" id="ins-x-list"></div>
+    <div class="ds-wrap" id="ins-ds"></div>
+    <div class="muted" style="font-weight:700;margin-bottom:4px">📕 小红书灵感</div>
+    <div class="form-grid">
+      <input placeholder="标题" id="ins-x-title" />
+      <textarea placeholder="内容 / 文案点子" id="ins-x-body" class="full"></textarea>
+      <button class="btn full" data-type="小红书" id="ins-x-add">+ 添加小红书灵感</button>
+    </div>
+    <div class="list" id="ins-x-list"></div>
 
-  <div class="muted" style="font-weight:700;margin:14px 0 4px">📖 小说创作</div>
-  <div class="form-grid">
-    <input placeholder="章节 / 标题" id="ins-n-title" />
-    <input type="date" id="ins-n-date" value="${todayStr()}" />
-    <textarea placeholder="情节 / 人物 / 灵感" id="ins-n-body" class="full"></textarea>
-    <button class="btn full" data-type="小说" id="ins-n-add">+ 添加小说灵感</button>
-  </div>
-  <div class="list" id="ins-n-list"></div>`;
-
+    <div class="muted" style="font-weight:700;margin:14px 0 4px">📖 小说创作</div>
+    <div class="form-grid">
+      <input placeholder="章节 / 标题" id="ins-n-title" />
+      <textarea placeholder="情节 / 人物 / 灵感" id="ins-n-body" class="full"></textarea>
+      <button class="btn full" data-type="小说" id="ins-n-add">+ 添加小说灵感</button>
+    </div>
+    <div class="list" id="ins-n-list"></div>`;
+  renderDateStrip(c.querySelector("#ins-ds"), selected, dates, (d) => { selected = d; drawAll(); });
   function drawOne(type, listId) {
     const el = c.querySelector("#" + listId);
-    const arr = state.inspiration.filter(i => i.type === type).sort((a, b) => b.date.localeCompare(a.date));
+    const arr = state.inspiration.filter(i => i.type === type && i.date === selected).slice().reverse();
     el.innerHTML = arr.length ? arr.map(i => `<div class="item">
       <button class="del" data-del="${i.id}">×</button>
       <div style="font-size:13px;padding-right:16px"><b>${esc(i.title)}</b> <span class="muted">· ${esc(i.date)}</span><br>${esc(i.body)}</div></div>`).join("")
-      : `<div class="empty">还没有${type}灵感</div>`;
+      : `<div class="empty">这一天还没有${type}灵感</div>`;
     el.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
-      state.inspiration = state.inspiration.filter(x => x.id !== b.dataset.del); save(); drawOne(type, listId);
+      state.inspiration = state.inspiration.filter(x => x.id !== b.dataset.del); save(); drawAll();
     });
   }
-  drawOne("小红书", "ins-x-list"); drawOne("小说", "ins-n-list");
-
+  function drawAll() { drawOne("小红书", "ins-x-list"); drawOne("小说", "ins-n-list"); }
+  drawAll();
   function wire(type, titleId, bodyId, addId, listId) {
     c.querySelector("#" + addId).onclick = () => {
       const title = c.querySelector("#" + titleId).value.trim();
       const body = c.querySelector("#" + bodyId).value.trim();
       if (!title && !body) return toast("写点内容吧");
-      state.inspiration.push({ id: uid(), type, title, body, date: c.querySelector("#" + (type === "小红书" ? "ins-x-date" : "ins-n-date")).value });
-      save(); c.querySelector("#" + titleId).value = ""; c.querySelector("#" + bodyId).value = ""; drawOne(type, listId);
+      state.inspiration.push({ id: uid(), type, title, body, date: selected });
+      save(); c.querySelector("#" + titleId).value = ""; c.querySelector("#" + bodyId).value = ""; drawAll();
     };
   }
   wire("小红书", "ins-x-title", "ins-x-body", "ins-x-add", "ins-x-list");
   wire("小说", "ins-n-title", "ins-n-body", "ins-n-add", "ins-n-list");
 }
-
-/* ---------- 感恩日记 ---------- */
 function renderGratitude(c) {
+  let selected = todayStr();
+  const dates = last7Days(selected);
   c.innerHTML = `
+    <div class="ds-wrap" id="gr-ds"></div>
     <div class="form-grid">
-      <input type="date" id="gr-date" value="${todayStr()}" />
       <textarea placeholder="今天感恩的一件小事…" id="gr-text" class="full"></textarea>
       <button class="btn full" id="gr-add">+ 写下感恩</button>
     </div>
     <div class="list" id="gr-list"></div>`;
   const listEl = c.querySelector("#gr-list");
+  renderDateStrip(c.querySelector("#gr-ds"), selected, dates, (d) => { selected = d; draw(); });
   function draw() {
-    const arr = [...state.gratitude].sort((a, b) => b.date.localeCompare(a.date));
+    const arr = state.gratitude.filter(g => g.date === selected).slice().reverse();
     listEl.innerHTML = arr.length ? arr.map(g => `<div class="item">
       <button class="del" data-del="${g.id}">×</button>
       <div style="font-size:13px;padding-right:16px">${esc(g.text)}<br><span class="muted">🙏 ${esc(g.date)}</span></div></div>`).join("")
-      : `<div class="empty">记下今天值得感恩的事</div>`;
+      : `<div class="empty">${selected === todayStr() ? "今天还没有写下感恩" : "这一天还没有写下感恩"}</div>`;
     listEl.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
-      state.gratitude = state.gratitude.filter(x => x.id !== b.dataset.del); save(); draw();
+      state.gratitude = state.gratitude.filter(x => x.id !== b.dataset.del); save(); draw(); renderHeader();
     });
   }
   draw();
   c.querySelector("#gr-add").onclick = () => {
     const text = c.querySelector("#gr-text").value.trim();
-    const date = c.querySelector("#gr-date").value;
     if (!text) return toast("写点感恩的事吧");
-    state.gratitude.push({ id: uid(), text, date });
+    state.gratitude.push({ id: uid(), text, date: selected });
     save(); c.querySelector("#gr-text").value = ""; draw(); renderHeader();
   };
 }
-
-/* ---------- 文书申请 ---------- */
 function renderApplications(c) {
+  const STATUS = ["未准备", "已准备", "已完成"];
   c.innerHTML = `
     <div class="form-grid">
-      <input placeholder="材料名称，如 个人陈述 PS" id="ap-name" />
-      <button class="btn full" id="ap-add">+ 添加材料</button>
+      <input placeholder="学校名称，如 哈佛大学" id="ap-school" />
+      <button class="btn full" id="ap-add-school">+ 添加学校</button>
     </div>
     <div class="list" id="ap-list"></div>`;
   const listEl = c.querySelector("#ap-list");
-  const STATUS = ["未准备", "已准备", "已完成"];
-  function draw() {
-    if (!state.applications.length) { listEl.innerHTML = `<div class="empty">还没添加申请材料</div>`; return; }
-    listEl.innerHTML = state.applications.map(a => `<div class="item">
-      <button class="del" data-del="${a.id}">×</button>
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding-right:16px">
-        <b style="font-size:13px">${esc(a.name)}</b>
-        <select data-status="${a.id}" style="width:auto">
-          ${STATUS.map(s => `<option ${a.status === s ? "selected" : ""}>${s}</option>`).join("")}
-        </select>
-      </div></div>`).join("");
-    listEl.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
-      state.applications = state.applications.filter(x => x.id !== b.dataset.del); save(); draw();
-    });
-    listEl.querySelectorAll("[data-status]").forEach(s => s.onchange = () => {
-      const a = state.applications.find(x => x.id === s.dataset.status); if (a) { a.status = s.value; save(); }
-    });
+  function drawList() {
+    if (!state.applications.length) { listEl.innerHTML = `<div class="empty">还没有添加学校</div>`; return; }
+    listEl.innerHTML = state.applications.map(s => {
+      const materials = s.materials || [];
+      const total = materials.length;
+      const done = materials.filter(m => m.status === "已完成").length;
+      const pct = total ? Math.round(done / total * 100) : 0;
+      return `<div class="item school-card" data-school="${s.id}" style="border-left:3px solid var(--accent)">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <b style="font-size:15px">🏫 ${esc(s.name)}</b>
+          <span class="chip">${done}/${total}</span>
+        </div>
+        <div class="pbar" style="margin:8px 0"><i style="width:${pct}%"></i></div>
+        <div class="muted" style="font-size:12px">点击查看材料清单</div>
+      </div>`;
+    }).join("");
+    listEl.querySelectorAll("[data-school]").forEach(el => el.onclick = () => openSchool(el.dataset.school));
   }
-  draw();
-  c.querySelector("#ap-add").onclick = () => {
-    const name = c.querySelector("#ap-name").value.trim();
-    if (!name) return toast("请输入材料名称");
-    state.applications.push({ id: uid(), name, status: "未准备" });
-    save(); c.querySelector("#ap-name").value = ""; draw();
+  function openSchool(schoolId) {
+    const school = state.applications.find(x => x.id === schoolId);
+    if (!school) return;
+    c.innerHTML = `
+      <div class="sub-head">
+        <button class="btn ghost" id="ap-back">← 返回学校列表</button>
+        <b>🏫 ${esc(school.name)}</b>
+      </div>
+      <div class="form-grid">
+        <input placeholder="材料名称，如 个人陈述 PS" id="ap-material" />
+        <button class="btn full" id="ap-add-material">+ 添加材料</button>
+      </div>
+      <div class="list" id="ap-materials"></div>`;
+    const matList = c.querySelector("#ap-materials");
+    c.querySelector("#ap-back").onclick = () => renderApplications(c);
+    function drawMaterials() {
+      const materials = school.materials || [];
+      if (!materials.length) { matList.innerHTML = `<div class="empty">还没添加材料</div>`; return; }
+      matList.innerHTML = materials.map(m => `<div class="item">
+        <button class="del" data-del="${m.id}">×</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding-right:16px">
+          <b style="font-size:13px">${esc(m.name)}</b>
+          <select data-status="${m.id}" style="width:auto">
+            ${STATUS.map(s => `<option ${m.status === s ? "selected" : ""}>${s}</option>`).join("")}
+          </select>
+        </div></div>`).join("");
+      matList.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
+        school.materials = school.materials.filter(x => x.id !== b.dataset.del); save(); drawMaterials(); renderHeader();
+      });
+      matList.querySelectorAll("[data-status]").forEach(s => s.onchange = () => {
+        const m = school.materials.find(x => x.id === s.dataset.status); if (m) { m.status = s.value; save(); renderHeader(); }
+      });
+    }
+    drawMaterials();
+    c.querySelector("#ap-add-material").onclick = () => {
+      const name = c.querySelector("#ap-material").value.trim();
+      if (!name) return toast("请输入材料名称");
+      if (!school.materials) school.materials = [];
+      school.materials.push({ id: uid(), name, status: "未准备" });
+      save(); c.querySelector("#ap-material").value = ""; drawMaterials(); renderHeader();
+    };
+  }
+  drawList();
+  c.querySelector("#ap-add-school").onclick = () => {
+    const name = c.querySelector("#ap-school").value.trim();
+    if (!name) return toast("请输入学校名称");
+    state.applications.push({ id: uid(), name, materials: [] });
+    save(); c.querySelector("#ap-school").value = ""; drawList();
   };
 }
-
-/* ---------- 签证办理 ---------- */
 function renderVisa(c) {
+  const STATUS = ["未开始", "办理中", "已完成"];
   c.innerHTML = `
     <div class="form-grid">
-      <input placeholder="步骤，如 预约递签" id="vs-name" />
-      <button class="btn full" id="vs-add">+ 添加步骤</button>
+      <input placeholder="签证名称，如 英国学生签证" id="vs-name" />
+      <button class="btn full" id="vs-add-category">+ 添加签证</button>
     </div>
     <div class="list" id="vs-list"></div>`;
   const listEl = c.querySelector("#vs-list");
-  const STATUS = ["未开始", "办理中", "已完成"];
-  function draw() {
-    if (!state.visa.length) { listEl.innerHTML = `<div class="empty">还没添加签证步骤</div>`; return; }
-    listEl.innerHTML = state.visa.map(v => `<div class="item">
-      <button class="del" data-del="${v.id}">×</button>
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding-right:16px">
-        <b style="font-size:13px">${esc(v.name)}</b>
-        <select data-status="${v.id}" style="width:auto">
-          ${STATUS.map(s => `<option ${v.status === s ? "selected" : ""}>${s}</option>`).join("")}
-        </select>
-      </div></div>`).join("");
-    listEl.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
-      state.visa = state.visa.filter(x => x.id !== b.dataset.del); save(); draw();
-    });
-    listEl.querySelectorAll("[data-status]").forEach(s => s.onchange = () => {
-      const v = state.visa.find(x => x.id === s.dataset.status); if (v) { v.status = s.value; save(); }
-    });
+  function drawList() {
+    if (!state.visa.length) { listEl.innerHTML = `<div class="empty">还没有添加签证</div>`; return; }
+    listEl.innerHTML = state.visa.map(v => {
+      const items = v.items || [];
+      const total = items.length;
+      const done = items.filter(i => i.status === "已完成").length;
+      const pct = total ? Math.round(done / total * 100) : 0;
+      return `<div class="item school-card" data-visa="${v.id}" style="border-left:3px solid var(--accent)">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <b style="font-size:15px">🛂 ${esc(v.name)}</b>
+          <span class="chip">${done}/${total}</span>
+        </div>
+        <div class="pbar" style="margin:8px 0"><i style="width:${pct}%"></i></div>
+        <div class="muted" style="font-size:12px">点击查看办理清单</div>
+      </div>`;
+    }).join("");
+    listEl.querySelectorAll("[data-visa]").forEach(el => el.onclick = () => openVisa(el.dataset.visa));
   }
-  draw();
-  c.querySelector("#vs-add").onclick = () => {
+  function openVisa(visaId) {
+    const visa = state.visa.find(x => x.id === visaId);
+    if (!visa) return;
+    c.innerHTML = `
+      <div class="sub-head">
+        <button class="btn ghost" id="vs-back">← 返回签证列表</button>
+        <b>🛂 ${esc(visa.name)}</b>
+      </div>
+      <div class="form-grid">
+        <input placeholder="步骤 / 材料，如 预约递签" id="vs-item" />
+        <button class="btn full" id="vs-add-item">+ 添加步骤</button>
+      </div>
+      <div class="list" id="vs-items"></div>`;
+    const itemList = c.querySelector("#vs-items");
+    c.querySelector("#vs-back").onclick = () => renderVisa(c);
+    function drawItems() {
+      const items = visa.items || [];
+      if (!items.length) { itemList.innerHTML = `<div class="empty">还没添加步骤</div>`; return; }
+      itemList.innerHTML = items.map(i => `<div class="item">
+        <button class="del" data-del="${i.id}">×</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding-right:16px">
+          <b style="font-size:13px">${esc(i.name)}</b>
+          <select data-status="${i.id}" style="width:auto">
+            ${STATUS.map(s => `<option ${i.status === s ? "selected" : ""}>${s}</option>`).join("")}
+          </select>
+        </div></div>`).join("");
+      itemList.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
+        visa.items = visa.items.filter(x => x.id !== b.dataset.del); save(); drawItems(); renderHeader();
+      });
+      itemList.querySelectorAll("[data-status]").forEach(s => s.onchange = () => {
+        const i = visa.items.find(x => x.id === s.dataset.status); if (i) { i.status = s.value; save(); renderHeader(); }
+      });
+    }
+    drawItems();
+    c.querySelector("#vs-add-item").onclick = () => {
+      const name = c.querySelector("#vs-item").value.trim();
+      if (!name) return toast("请输入步骤名称");
+      if (!visa.items) visa.items = [];
+      visa.items.push({ id: uid(), name, status: "未开始" });
+      save(); c.querySelector("#vs-item").value = ""; drawItems(); renderHeader();
+    };
+  }
+  drawList();
+  c.querySelector("#vs-add-category").onclick = () => {
     const name = c.querySelector("#vs-name").value.trim();
-    if (!name) return toast("请输入步骤名称");
-    state.visa.push({ id: uid(), name, status: "未开始" });
-    save(); c.querySelector("#vs-name").value = ""; draw();
+    if (!name) return toast("请输入签证名称");
+    state.visa.push({ id: uid(), name, items: [] });
+    save(); c.querySelector("#vs-name").value = ""; drawList();
   };
 }
-
-/* =========================================================================
-   账号 UI
-   ========================================================================= */
 function refreshAuthBtn() {}
 function onAuthClick() {
   if (authToken) {

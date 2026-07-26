@@ -269,6 +269,24 @@ button{font-family:var(--font);cursor:pointer;}
 .mp-rec:active{transform:scale(.95);}
 .mp-body{padding:14px;}
 
+/* 模块内日期条（类似首页本周打卡） */
+.ds-wrap{margin:0 -14px 14px -14px;padding:10px 14px;background:var(--card);border-bottom:1px solid var(--line);}
+.ds-bar{display:flex;gap:8px;justify-content:space-between;}
+.ds-day{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 0;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font-family:inherit;cursor:pointer;transition:background .15s,transform .12s,border-color .15s;}
+.ds-day:active{transform:scale(.95);}
+.ds-day .ds-dow{font-size:11px;color:var(--ink-soft);font-weight:600;}
+.ds-day .ds-dom{font-size:15px;font-weight:800;}
+.ds-day.selected{background:var(--accent);color:#fff;border-color:var(--accent);}
+.ds-day.selected .ds-dow{color:#fff;}
+.ds-day.today{box-shadow:0 0 0 2px var(--accent-soft);}
+.ds-day.selected.today{box-shadow:0 0 0 2px var(--accent-deep);}
+
+/* 学校 / 签证卡片（可点击进入清单） */
+.school-card{cursor:pointer;transition:transform .12s,box-shadow .15s;}
+.school-card:active{transform:scale(.98);}
+.sub-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+.sub-head b{font-size:16px;font-weight:800;}
+
 /* 本周打卡 · 各模块明细 */
 .mc-list{margin-top:14px;border-top:1px dashed var(--line);padding-top:12px;display:flex;flex-direction:column;gap:9px;}
 .mc-list-title{font-size:12px;font-weight:800;color:var(--ink-soft);margin-bottom:2px;}

@@ -1,5 +1,5 @@
 /* Vivian 工作台 Service Worker —— 联网优先，保证每次部署都拉最新文件（离线时回退缓存） */
-const CACHE = "vivian-v8";
+const CACHE = "vivian-v9";
 const CORE = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", (e) => {
