@@ -1,9 +1,9 @@
 :root{
-  --accent:#10b981;
-  --accent-soft:#d1fae5;
-  --accent-deep:#059669;
-  --accent-light:#ecfdf5;
-  --bg:#f0fdf4;
+  --accent:#ec4899;
+  --accent-soft:#fce7f3;
+  --accent-deep:#db2777;
+  --accent-light:#fdf2f8;
+  --bg:#fff5f9;
   --card:#ffffff;
   --ink:#1f2937;
   --ink-soft:#6b7280;
@@ -263,7 +263,7 @@ button{font-family:var(--font);cursor:pointer;}
 .form-grid .full{grid-column:1/-1;}
 
 /* 语法课本 */
-.book{border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:10px;background:#f7fdfb;}
+.book{border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:10px;background:#fdf2f8;}
 .book-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}
 .book-title{font-weight:800;font-size:14px;color:var(--accent-deep);}
 .vp-cell{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;

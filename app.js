@@ -168,7 +168,7 @@ function defaultSkincare() {
 }
 function defaultState() {
   return {
-    settings: { accent: "#10b981", bgColor: "#f0fdf4", bgImage: null, showSub: "记录生活 · 韩语学习 · 申请进度", userName: "Vivian" },
+    settings: { accent: "#ec4899", bgColor: "#fff5f9", bgImage: null, showSub: "记录生活 · 韩语学习 · 申请进度", userName: "Vivian" },
     layout: { col1: ["countdown", "grammar", "vocabpractice", "todo", "life", "expense"], col2: ["inspiration", "gratitude", "skincare", "applications", "visa"] },
     expense: [],
     vocab: [],

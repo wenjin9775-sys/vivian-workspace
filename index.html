@@ -4,12 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Vivian 的工作台</title>
-  <meta name="theme-color" content="#10b981" />
+  <meta name="theme-color" content="#ec4899" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icon.svg" />
-  <link rel="stylesheet" href="styles.css?v=2" />
+  <link rel="stylesheet" href="styles.css?v=3" />
 </head>
 <body>
   <div id="app">
@@ -50,7 +50,7 @@
     if (!box) {
       box = document.createElement('div');
       box.id = 'app-error';
-      box.style.cssText = 'display:none;position:fixed;top:80px;left:20px;right:20px;z-index:9999;background:#ecfdf5;border:2px solid #10b981;color:#065f46;padding:18px 20px;border-radius:14px;font-family:system-ui,Microsoft YaHei;font-size:13px;white-space:pre-wrap;max-height:70vh;overflow:auto;box-shadow:0 10px 30px rgba(16,185,129,.25);';
+      box.style.cssText = 'display:none;position:fixed;top:80px;left:20px;right:20px;z-index:9999;background:#fdf2f8;border:2px solid #ec4899;color:#9d174d;padding:18px 20px;border-radius:14px;font-family:system-ui,Microsoft YaHei;font-size:13px;white-space:pre-wrap;max-height:70vh;overflow:auto;box-shadow:0 10px 30px rgba(236,72,153,.25);';
       document.body.appendChild(box);
     }
     function show(msg){
@@ -67,6 +67,6 @@
     });
   })();
   </script>
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>
