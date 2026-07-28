@@ -1112,13 +1112,13 @@ function renderSidebar() {
   const sb = document.getElementById("app-sidebar");
   if (!sb) return;
   const order = getSideOrder();
-  sb.innerHTML = `<div class="sb-brand">V</div>` + order.map(id => {
+  sb.innerHTML = `<div class="sb-brand">V</div><div class="sb-tabs">` + order.map(id => {
     const t = SIDE_TABS.find(x => x.id === id);
     return `<button class="tab-item" data-tab="${id}"><span class="tab-icon">${t.icon}</span><span class="tab-label">${t.label}</span></button>`;
-  }).join("");
+  }).join("") + `</div>`;
   sb.querySelectorAll(".tab-item").forEach(b => b.onclick = () => switchTab(b.dataset.tab));
   sb.querySelectorAll(".tab-item").forEach(t => t.classList.toggle("active", t.dataset.tab === currentTab));
-  setupSidebarDrag(sb);
+  setupSidebarDrag(sb.querySelector(".sb-tabs"));
 }
 /* 指针拖拽（鼠标 / 触屏通用）：按住任一入口上下拖动即可重排，松手保存顺序 */
 function setupSidebarDrag(sb) {
