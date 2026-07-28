@@ -1088,8 +1088,8 @@ const SIDE_TABS = [
   { id: "home", icon: "🏠", label: "首页" },
   { id: "modules", icon: "📦", label: "模块" },
   { id: "brain", icon: "🧠", label: "第二大脑" },
-  { id: "me", icon: "👤", label: "我的" },
-  { id: "items", icon: "🛍️", label: "待使用" }
+  { id: "items", icon: "🛍️", label: "待使用" },
+  { id: "me", icon: "👤", label: "我的" }
 ];
 const SIDE_ORDER_KEY = "vivian_sidebar_order";
 function getSideOrder() {
