@@ -517,10 +517,33 @@ button{font-family:var(--font);cursor:pointer;}
 .cd-hero.empty .cd-hero-time{display:block;font-size:16px;font-weight:700;color:var(--accent-deep);}
 .cd-hero.empty .cd-hero-hint{color:var(--ink-soft);}
 
-/* 响应式：桌面也限制为手机宽度 */
-@media (min-width:520px){
-  body{background:#fce7f3;}
-  #app{box-shadow:0 0 60px rgba(0,0,0,.08);}
+/* 响应式：平板 / 桌面 适配（不再局限于手机宽度） */
+@media (min-width:560px){
+  body{
+    background:linear-gradient(135deg,#ffe1ec 0%,#fff5f9 45%,#eef2ff 100%);
+    display:flex;align-items:center;justify-content:center;
+    min-height:100dvh;
+  }
+  #app{
+    max-width:760px;width:94vw;height:94dvh;margin:0;
+    border-radius:28px;overflow:hidden;
+    box-shadow:0 30px 80px rgba(219,39,119,.20);
+  }
+  .app-sidebar{width:90px;border-radius:28px 0 0 28px;}
+  .app-header{border-radius:0 28px 0 0;}
+  .app-main{padding:22px 22px calc(22px + var(--safe-bottom));}
+}
+@media (min-width:900px){
+  #app{max-width:980px;}
+  .module-grid{grid-template-columns:repeat(3,1fr);}
+  .stat-grid{grid-template-columns:repeat(6,1fr);}
+  .app-main{padding:26px 26px calc(26px + var(--safe-bottom));}
+}
+@media (min-width:1280px){
+  #app{max-width:1120px;}
+  .app-sidebar{width:104px;}
+  .sb-tabs{gap:18px;}
+  .tab-item .tab-label{font-size:11px;}
 }
 
 @media (max-width:360px){
