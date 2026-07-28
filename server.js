@@ -164,6 +164,10 @@ async function authUser(req) {
   for (const name in users) if (users[name].token === token) return name;
   return null;
 }
+const todayStr = () => {
+  const d = new Date(); const off = d.getTimezoneOffset();
+  return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10);
+};
 
 const MIME = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
@@ -234,6 +238,36 @@ const server = http.createServer(async (req, res) => {
         const d = await loadImage(un, id);
         if (d == null) { res.writeHead(404); return res.end("not found"); }
         res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" }); return res.end(d);
+      }
+
+      /* 健康数据同步（来自 iOS 快捷指令 / Apple 健康） */
+      if (p === "/api/health" && req.method === "POST") {
+        const un = await authUser(req); if (!un) return send(res, 401, { error: "未登录" });
+        const st = await loadState(un);
+        st.health = st.health || {};
+        const num = (v) => (typeof v === "number" && !isNaN(v)) ? v : undefined;
+        const mergeDay = (day) => {
+          if (!day || typeof day !== "object") return;
+          const date = typeof day.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(day.date) ? day.date : todayStr();
+          const cur = st.health[date] || {};
+          if (num(day.steps) != null) cur.steps = Math.round(day.steps);
+          if (num(day.activeCalories) != null) cur.activeCalories = Math.round(day.activeCalories);
+          if (num(day.restingCalories) != null) cur.restingCalories = Math.round(day.restingCalories);
+          if (num(day.distanceKm) != null) cur.distanceKm = Number(day.distanceKm);
+          if (Array.isArray(day.workouts)) {
+            cur.workouts = day.workouts.map(w => ({
+              name: String(w && w.name || "运动"),
+              calories: num(w && w.calories),
+              durationMin: num(w && w.durationMin)
+            })).filter(w => w.name);
+          }
+          cur.syncedAt = Date.now();
+          st.health[date] = cur;
+        };
+        if (Array.isArray(json.days)) json.days.forEach(mergeDay);
+        else mergeDay(json);
+        await saveState(un, st);
+        return send(res, 200, { ok: true, health: st.health });
       }
 
       return send(res, 404, { error: "not found" });

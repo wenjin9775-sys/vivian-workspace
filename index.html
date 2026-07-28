@@ -9,18 +9,13 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icon.svg" />
-  <link rel="stylesheet" href="styles.css?v=11" />
+  <link rel="stylesheet" href="styles.css?v=13" />
 </head>
 <body>
   <div id="app">
-    <!-- 顶部动态头 -->
-    <header class="app-header" id="app-header"></header>
-
-    <!-- 主内容区 -->
-    <main class="app-main" id="app-main"></main>
-
-    <!-- 底部导航 -->
-    <nav class="app-tabbar" id="app-tabbar">
+    <!-- 左侧导航 -->
+    <nav class="app-sidebar" id="app-sidebar">
+      <div class="sb-brand">V</div>
       <button class="tab-item active" data-tab="home">
         <span class="tab-icon">🏠</span>
         <span class="tab-label">首页</span>
@@ -38,6 +33,12 @@
         <span class="tab-label">我的</span>
       </button>
     </nav>
+
+    <!-- 右侧内容区 -->
+    <div class="app-content">
+      <header class="app-header" id="app-header"></header>
+      <main class="app-main" id="app-main"></main>
+    </div>
   </div>
 
   <div id="modal-root"></div>
@@ -67,6 +68,6 @@
     });
   })();
   </script>
-  <script src="app.js?v=17"></script>
+  <script src="app.js?v=19"></script>
 </body>
 </html>

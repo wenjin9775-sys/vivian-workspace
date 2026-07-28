@@ -195,6 +195,12 @@ const SKIN_EMOJI = { "面膜": "🧖‍♀️", "唇膜": "💋", "眼霜": "�
 function defaultSkincare() {
   return { cats: SKINCARE_CATS.map(n => ({ id: uid(), name: n, doneDates: [], entries: [] })) };
 }
+function defaultItems() {
+  return [
+    { id: uid(), name: "美妆", items: [] },
+    { id: uid(), name: "零食", items: [] }
+  ];
+}
 function defaultState() {
   return {
     settings: { accent: "#ec4899", bgColor: "#fff5f9", bgImage: null, showSub: "记录生活 · 韩语学习 · 申请进度", userName: "Vivian" },
@@ -211,7 +217,9 @@ function defaultState() {
     visa: [],
     skincare: defaultSkincare(),
     countdowns: [],
-    secondBrain: []
+    secondBrain: [],
+    items: defaultItems(),
+    health: {}
   };
 }
 let state = loadState();
@@ -338,7 +346,8 @@ const MODULES = [
   { id: "gratitude", title: "感恩日记", icon: "🙏", render: renderGratitude },
   { id: "applications", title: "文书申请", icon: "📄", render: renderApplications },
   { id: "visa", title: "签证", icon: "🛂", render: renderVisa },
-  { id: "skincare", title: "每日护肤", icon: "🧴", render: renderSkincare }
+  { id: "skincare", title: "每日护肤", icon: "🧴", render: renderSkincare },
+  { id: "items", title: "待使用物品", icon: "🛍️", render: renderItems }
 ];
 
 /* ---------- 倒计时计算工具 ---------- */
@@ -591,6 +600,10 @@ function moduleBadge(id) {
     return n || "";
   }
   if (id === "expense") return state.expense.filter(e => e.date === today).length || "";
+  if (id === "items") {
+    const n = state.items.reduce((s, c) => s + c.items.filter(i => !i.used).length, 0);
+    return n || "";
+  }
   return "";
 }
 /* 每个小模块的进度（有每日打卡数据的按「本周 7 天」计算，其余按完成度计算） */
@@ -671,6 +684,12 @@ function moduleProgress(id) {
     case "countdown": {
       const n = (state.countdowns || []).length;
       return { pct: n ? 100 : 0, text: n ? `${n} 个目标` : "未设置" };
+    }
+    case "items": {
+      const all = state.items.flatMap(c => c.items);
+      const total = all.length;
+      const used = all.filter(i => i.used).length;
+      return total ? { pct: Math.round(used / total * 100), text: `已用 ${used}/${total}` } : { pct: 0, text: "未添加" };
     }
   }
   return { pct: 0, text: "" };
@@ -763,8 +782,89 @@ function moduleRecordsHTML(id) {
       if (!rows.length) return `<div class="empty">护肤还没有打卡记录</div>`;
       return rows.map(r => `<div class="rec-item"><b>${SKIN_EMOJI[r.name] || "🧴"} ${esc(r.name)}</b><span>已打卡 ${r.n} 天</span></div>`).join("");
     }
+    case "items": {
+      if (!state.items.length) return `<div class="empty">还没有分类</div>`;
+      return state.items.map(cat => {
+        if (!cat.items.length) return `<div class="rec-item"><b>${esc(cat.name)}</b><span>暂无物品</span></div>`;
+        return cat.items.map(it => `<div class="rec-item ${it.used ? "done" : ""}"><b><span class="rec-k">${esc(cat.name)}</span> ${esc(it.name)}</b><span>${it.used ? "已使用 ✓" : "待使用"}${it.note ? " · " + esc(it.note) : ""}</span></div>`).join("");
+      }).join("");
+    }
   }
   return `<div class="empty">暂无记录</div>`;
+}
+
+/* ---------- 待使用物品 ---------- */
+function renderItems(c) {
+  c.innerHTML = `
+    <div class="muted" style="margin-bottom:12px">🛍️ 把还没用完的东西按分类记下来（默认：美妆 / 零食，可自定义）。用完就点左侧圆圈标记「已使用」。</div>
+    <div class="it-catadd">
+      <input id="it-newcat" placeholder="新分类名（如：护肤品 / 药品）" />
+      <button class="btn sm" id="it-addcat">+ 分类</button>
+    </div>
+    <div id="it-list"></div>`;
+  const listEl = c.querySelector("#it-list");
+  function draw() {
+    if (!state.items.length) { listEl.innerHTML = `<div class="empty">还没有分类，在上方添加第一个吧</div>`; return; }
+    listEl.innerHTML = state.items.map(cat => {
+      const total = cat.items.length;
+      const used = cat.items.filter(i => i.used).length;
+      const pct = total ? Math.round(used / total * 100) : 0;
+      const rows = cat.items.length ? cat.items.map(it => `
+        <div class="it-item ${it.used ? "used" : ""}">
+          <button class="it-toggle" data-use="${cat.id}|${it.id}">${it.used ? "✓" : ""}</button>
+          <div class="it-info"><span class="it-name">${esc(it.name)}</span>${it.note ? `<span class="it-note">${esc(it.note)}</span>` : ""}</div>
+          <button class="del" data-delit="${cat.id}|${it.id}">×</button>
+        </div>`).join("") : `<div class="empty sm">暂无物品</div>`;
+      return `<div class="it-cat">
+        <div class="it-cat-head">
+          <b>${esc(cat.name)}</b>
+          <span class="chip">${used}/${total}</span>
+          <button class="del" data-delcat="${cat.id}">删除</button>
+        </div>
+        <div class="pbar" style="margin:6px 0 10px"><i style="width:${pct}%"></i></div>
+        ${rows}
+        <div class="it-add">
+          <input placeholder="物品名称" id="it-name-${cat.id}" />
+          <input placeholder="备注(选填)" id="it-note-${cat.id}" />
+          <button class="btn sm" data-addit="${cat.id}">+ 添加</button>
+        </div>
+      </div>`;
+    }).join("");
+    listEl.querySelectorAll("[data-use]").forEach(b => b.onclick = () => {
+      const [cid, iid] = b.dataset.use.split("|");
+      const cat = state.items.find(x => x.id === cid);
+      const it = cat && cat.items.find(x => x.id === iid);
+      if (it) { it.used = !it.used; save(); draw(); }
+    });
+    listEl.querySelectorAll("[data-delit]").forEach(b => b.onclick = () => {
+      const [cid, iid] = b.dataset.delit.split("|");
+      const cat = state.items.find(x => x.id === cid);
+      if (cat) { cat.items = cat.items.filter(x => x.id !== iid); save(); draw(); }
+    });
+    listEl.querySelectorAll("[data-delcat]").forEach(b => b.onclick = () => {
+      if (!confirm("删除该分类及其所有物品？")) return;
+      state.items = state.items.filter(x => x.id !== b.dataset.delcat); save(); draw();
+    });
+    listEl.querySelectorAll("[data-addit]").forEach(b => b.onclick = () => {
+      const cid = b.dataset.addit;
+      const nameEl = c.querySelector("#it-name-" + cid);
+      const noteEl = c.querySelector("#it-note-" + cid);
+      const name = nameEl.value.trim();
+      if (!name) return toast("请输入物品名称");
+      const cat = state.items.find(x => x.id === cid);
+      if (cat) { cat.items.push({ id: uid(), name, note: noteEl.value.trim(), used: false }); save(); draw(); }
+    });
+  }
+  draw();
+  const addCatBtn = c.querySelector("#it-addcat");
+  addCatBtn.onclick = () => {
+    const el = c.querySelector("#it-newcat");
+    const name = el.value.trim();
+    if (!name) return toast("请输入分类名称");
+    state.items.push({ id: uid(), name, items: [] });
+    save(); el.value = ""; draw();
+  };
+  c.querySelector("#it-newcat").addEventListener("keydown", e => { if (e.key === "Enter") addCatBtn.click(); });
 }
 
 /* ---------- 第二大脑 ---------- */
@@ -866,6 +966,7 @@ function renderMe() {
       <button class="me-item" id="me-theme"><span class="icon">🎨</span><span class="text">主题色</span><span class="arrow">›</span></button>
       <button class="me-item" id="me-name"><span class="icon">✏️</span><span class="text">修改称呼</span><span class="arrow">›</span></button>
       <button class="me-item" id="me-clear"><span class="icon">🗑</span><span class="text">清空所有数据</span><span class="arrow">›</span></button>
+      <button class="me-item" id="me-health"><span class="icon">🍎</span><span class="text">健康数据同步（Apple 手表）</span><span class="arrow">›</span></button>
     </div>
   `;
   main.querySelector("#me-auth").onclick = onAuthClick;
@@ -878,6 +979,53 @@ function renderMe() {
     if (!confirm("确定清空所有数据？此操作不可恢复。")) return;
     state = defaultState(); save(); applyTheme(); renderHeader(); renderMe(); toast("已清空");
   };
+  main.querySelector("#me-health").onclick = openHealthSyncModal;
+}
+
+function openHealthSyncModal() {
+  const root = document.getElementById("modal-root");
+  const endpoint = location.origin + "/api/health";
+  const token = authToken || "";
+  const sample = JSON.stringify({
+    date: todayStr(),
+    steps: 8500,
+    activeCalories: 420,
+    restingCalories: 1500,
+    distanceKm: 6.2,
+    workouts: [{ name: "跑步", calories: 280, durationMin: 32 }]
+  }, null, 2);
+  const guide = `
+    <ol class="hs-guide">
+      <li>iPhone 打开「快捷指令」App → 右上角 <b>+</b> 新建。</li>
+      <li>加「<b>获取健康样本</b>」：类型选「活动能量」，时间今天，汇总「总和」→ 设变量 <b>活动消耗</b>。</li>
+      <li>再加「获取健康样本」：类型「步数」→ 变量 <b>步数</b>；再加「步行+跑步距离」→ 变量 <b>距离</b>。</li>
+      <li>加「获取健康样本」：类型「体能训练」，今天 → 用「重复每张」把每个训练的「名称/总能量/持续时间（分钟）」塞进一个字典数组 <b>运动</b>。</li>
+      <li>加「<b>获取 URL 内容</b>」：方法 POST，URL 填下面的接口地址；请求体选 JSON，内容为：
+        <code>{ "date": "当前日期", "steps": 步数, "activeCalories": 活动消耗, "distanceKm": 距离, "workouts": 运动 }</code></li>
+      <li>在「获取 URL 内容」的请求头里加 <b>Authorization</b> = <b>Bearer &lt;下方同步令牌&gt;</b>。</li>
+      <li>保存，命名为「同步健康到 Vivian」。以后每天点一下，或在「自动化」里设「每天 23:00 自动运行」。</li>
+    </ol>`;
+  root.innerHTML = `<div class="modal-backdrop"><div class="modal" style="max-height:88vh;width:min(560px,94%)">
+    <div class="modal-head">🍎 健康数据同步（Apple 手表）<a class="modal-x" data-close>×</a></div>
+    <div class="modal-body">
+      <p class="muted" style="margin:0 0 10px">Apple 健康数据只能由 iPhone 原生读取，网页读不到。用「快捷指令」每天把当天数据推给工作台即可（无需开发者账号）。</p>
+      <div class="muted" style="font-weight:700">① 接口地址</div>
+      <div class="hs-row"><input id="hs-ep" value="${esc(endpoint)}" readonly/><button class="btn sm" id="hs-copy-ep">复制</button></div>
+      <div class="muted" style="font-weight:700;margin-top:8px">② 同步令牌（Bearer）</div>
+      <div class="hs-row"><input id="hs-tk" value="${esc(token)}" readonly/><button class="btn sm" id="hs-copy-tk">复制</button></div>
+      ${authToken ? "" : `<div class="hs-warn">⚠️ 当前未登录，没有令牌。请先在「我的 → 登录/注册」登录后再来复制。</div>`}
+      <div class="muted" style="font-weight:700;margin-top:10px">③ 快捷指令搭建步骤</div>
+      ${guide}
+      <div class="muted" style="font-weight:700">示例请求体（POST JSON）</div>
+      <pre class="hs-pre">${esc(sample)}</pre>
+    </div>
+  </div></div>`;
+  const bd = root.querySelector(".modal-backdrop");
+  bd.querySelector("[data-close]").onclick = () => (root.innerHTML = "");
+  bd.onclick = (e) => { if (e.target === bd) root.innerHTML = ""; };
+  const copy = (sel, msg) => { const el = root.querySelector(sel); el.select(); try { document.execCommand("copy"); } catch (e) {}; if (navigator.clipboard) navigator.clipboard.writeText(el.value).catch(()=>{}); toast(msg); };
+  root.querySelector("#hs-copy-ep").onclick = () => copy("#hs-ep", "接口地址已复制");
+  root.querySelector("#hs-copy-tk").onclick = () => copy("#hs-tk", "令牌已复制");
 }
 function openThemePicker() {
   const root = document.getElementById("modal-root");
@@ -927,7 +1075,7 @@ function setupTabs() {
   document.querySelectorAll(".tab-item").forEach(t => t.onclick = () => switchTab(t.dataset.tab));
 }
 function criticalElementsReady() {
-  return document.getElementById("app-header") && document.getElementById("app-main") && document.getElementById("app-tabbar");
+  return document.getElementById("app-header") && document.getElementById("app-main") && document.getElementById("app-sidebar");
 }
 function showReloadPrompt() {
   const box = document.getElementById("app-error");
@@ -1408,6 +1556,7 @@ function renderLife(c) {
   const dates = last7Days(selected);
   c.innerHTML = `
     <div class="ds-wrap" id="life-ds"></div>
+    <div class="health-sync" id="hlth-box"></div>
     <div class="muted" style="font-weight:700;margin-bottom:4px">🏃 健身运动</div>
     <div class="form-grid">
       <input placeholder="训练项目，如 跑步30分钟" id="fit-text" />
@@ -1534,7 +1683,31 @@ function renderLife(c) {
   c.querySelector("#diet-pic").onclick = () => {
     uploadImage(id => { ensureDietDay(selected).img = id; save(); drawAll(); });
   };
-  function drawAll() { drawFit(); drawWt(); drawDiet(); }
+  function drawHealth() {
+    const box = c.querySelector("#hlth-box");
+    if (!box) return;
+    const h = state.health && state.health[selected];
+    if (!h) {
+      box.innerHTML = `<div class="hs-empty">🍎 还没同步健康数据 · 去「我的 → 健康同步」用快捷指令连 Apple 手表</div>`;
+      return;
+    }
+    const wk = (h.workouts || []);
+    const wkCount = wk.length;
+    const wkMin = wk.reduce((s, w) => s + (w.durationMin || 0), 0);
+    const cell = (label, val) => val != null && val !== "" ? `<div class="hs-cell"><b>${esc(String(val))}</b><span>${esc(label)}</span></div>` : "";
+    box.innerHTML = `
+      <div class="hs-head"><span>🍎 Apple 健康</span><span class="hs-time">${h.syncedAt ? new Date(h.syncedAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}</span></div>
+      <div class="hs-grid">
+        ${cell("步数", h.steps)}
+        ${cell("活动消耗", h.activeCalories != null ? h.activeCalories + " kcal" : null)}
+        ${cell("静息消耗", h.restingCalories != null ? h.restingCalories + " kcal" : null)}
+        ${cell("运动", wkCount ? wkCount + " 次" : null)}
+        ${cell("运动时长", wkMin ? wkMin + " 分" : null)}
+        ${cell("距离", h.distanceKm != null ? h.distanceKm + " km" : null)}
+      </div>
+      ${wkCount ? `<div class="hs-wk">${wk.map(w => `<span class="hs-tag">${esc(w.name)}${w.calories != null ? " · " + w.calories + " kcal" : ""}</span>`).join("")}</div>` : ""}`;
+  }
+  function drawAll() { drawHealth(); drawFit(); drawWt(); drawDiet(); }
   drawAll();
 }
 function sparklineBig(arr) {
