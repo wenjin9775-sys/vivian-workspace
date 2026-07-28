@@ -1083,8 +1083,95 @@ function switchTab(tab) {
   else if (tab === "me") renderMe();
   else if (tab === "items") renderItemsPage();
 }
+/* ---------- 左侧边栏（可拖拽自由排序） ---------- */
+const SIDE_TABS = [
+  { id: "home", icon: "🏠", label: "首页" },
+  { id: "modules", icon: "📦", label: "模块" },
+  { id: "brain", icon: "🧠", label: "第二大脑" },
+  { id: "me", icon: "👤", label: "我的" },
+  { id: "items", icon: "🛍️", label: "待使用" }
+];
+const SIDE_ORDER_KEY = "vivian_sidebar_order";
+function getSideOrder() {
+  try {
+    const s = localStorage.getItem(SIDE_ORDER_KEY);
+    if (s) {
+      const arr = JSON.parse(s);
+      const ids = SIDE_TABS.map(t => t.id);
+      const filtered = arr.filter(id => ids.includes(id));
+      ids.forEach(id => { if (!filtered.includes(id)) filtered.push(id); });
+      return filtered;
+    }
+  } catch (e) {}
+  return SIDE_TABS.map(t => t.id);
+}
+function setSideOrder(order) {
+  try { localStorage.setItem(SIDE_ORDER_KEY, JSON.stringify(order)); } catch (e) {}
+}
+function renderSidebar() {
+  const sb = document.getElementById("app-sidebar");
+  if (!sb) return;
+  const order = getSideOrder();
+  sb.innerHTML = `<div class="sb-brand">V</div>` + order.map(id => {
+    const t = SIDE_TABS.find(x => x.id === id);
+    return `<button class="tab-item" data-tab="${id}"><span class="tab-icon">${t.icon}</span><span class="tab-label">${t.label}</span></button>`;
+  }).join("");
+  sb.querySelectorAll(".tab-item").forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+  sb.querySelectorAll(".tab-item").forEach(t => t.classList.toggle("active", t.dataset.tab === currentTab));
+  setupSidebarDrag(sb);
+}
+/* 指针拖拽（鼠标 / 触屏通用）：按住任一入口上下拖动即可重排，松手保存顺序 */
+function setupSidebarDrag(sb) {
+  let dragEl = null, ghost = null, startY = 0, startX = 0, dragging = false, offY = 0;
+  sb.querySelectorAll(".tab-item").forEach(el => {
+    el.addEventListener("pointerdown", e => {
+      dragEl = el; startY = e.clientY; startX = e.clientX; dragging = false;
+      try { el.setPointerCapture(e.pointerId); } catch (_) {}
+      el.addEventListener("pointermove", onMove);
+      el.addEventListener("pointerup", onUp, { once: true });
+      el.addEventListener("pointercancel", onUp, { once: true });
+    });
+  });
+  function onMove(e) {
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    if (!dragging) {
+      if (Math.hypot(dx, dy) < 8) return;
+      dragging = true;
+      const r = dragEl.getBoundingClientRect();
+      offY = startY - r.top;
+      ghost = dragEl.cloneNode(true);
+      ghost.style.cssText = "position:fixed;left:" + r.left + "px;top:" + r.top + "px;width:" + r.width + "px;z-index:9999;opacity:.92;pointer-events:none;box-shadow:0 12px 30px rgba(236,72,153,.35);border-radius:14px;";
+      document.body.appendChild(ghost);
+      dragEl.style.opacity = ".3";
+      dragEl.style.transition = "none";
+    }
+    e.preventDefault();
+    ghost.style.top = (e.clientY - offY) + "px";
+    const items = [...sb.querySelectorAll(".tab-item")].filter(n => n !== dragEl);
+    let placed = false;
+    for (const it of items) {
+      const r = it.getBoundingClientRect();
+      if (e.clientY < r.top + r.height / 2) { sb.insertBefore(dragEl, it); placed = true; break; }
+    }
+    if (!placed) sb.appendChild(dragEl);
+  }
+  function onUp() {
+    if (!dragEl) return;
+    dragEl.removeEventListener("pointermove", onMove);
+    if (dragging) {
+      if (ghost) ghost.remove();
+      dragEl.style.opacity = "";
+      dragEl.style.transition = "";
+      const order = [...sb.querySelectorAll(".tab-item")].map(n => n.dataset.tab);
+      setSideOrder(order);
+      // 拖拽结束后拦截本次 click，避免顺手切换 tab
+      dragEl.addEventListener("click", e => { e.stopPropagation(); e.preventDefault(); }, { capture: true, once: true });
+    }
+    dragging = false; dragEl = null; ghost = null;
+  }
+}
 function setupTabs() {
-  document.querySelectorAll(".tab-item").forEach(t => t.onclick = () => switchTab(t.dataset.tab));
+  renderSidebar();
 }
 function criticalElementsReady() {
   return document.getElementById("app-header") && document.getElementById("app-main") && document.getElementById("app-sidebar");
