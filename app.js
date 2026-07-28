@@ -346,8 +346,7 @@ const MODULES = [
   { id: "gratitude", title: "感恩日记", icon: "🙏", render: renderGratitude },
   { id: "applications", title: "文书申请", icon: "📄", render: renderApplications },
   { id: "visa", title: "签证", icon: "🛂", render: renderVisa },
-  { id: "skincare", title: "每日护肤", icon: "🧴", render: renderSkincare },
-  { id: "items", title: "待使用物品", icon: "🛍️", render: renderItems }
+  { id: "skincare", title: "每日护肤", icon: "🧴", render: renderSkincare }
 ];
 
 /* ---------- 倒计时计算工具 ---------- */
@@ -866,6 +865,18 @@ function renderItems(c) {
   };
   c.querySelector("#it-newcat").addEventListener("keydown", e => { if (e.key === "Enter") addCatBtn.click(); });
 }
+function renderItemsPage() {
+  const main = document.getElementById("app-main");
+  main.innerHTML = `
+    <div class="mp-head">
+      <button class="mp-back" id="items-back">‹ 模块</button>
+      <span class="mp-title">🛍️ 待使用物品</span>
+      <span></span>
+    </div>
+    <div class="mp-body" id="items-body"></div>`;
+  main.querySelector("#items-back").onclick = () => switchTab("modules");
+  renderItems(main.querySelector("#items-body"));
+}
 
 /* ---------- 第二大脑 ---------- */
 function renderSecondBrainPage() {
@@ -1070,6 +1081,7 @@ function switchTab(tab) {
   else if (tab === "modules") renderModules();
   else if (tab === "brain") renderSecondBrainPage();
   else if (tab === "me") renderMe();
+  else if (tab === "items") renderItemsPage();
 }
 function setupTabs() {
   document.querySelectorAll(".tab-item").forEach(t => t.onclick = () => switchTab(t.dataset.tab));
