@@ -1168,7 +1168,7 @@ function renderSidebar() {
   sb.innerHTML = `<div class="sb-brand">V</div><div class="sb-tabs">` + order.map(id => {
     const t = SIDE_TABS.find(x => x.id === id);
     return `<button class="tab-item" data-tab="${id}"><span class="tab-icon">${t.icon}</span><span class="tab-label">${t.label}</span></button>`;
-  }).join("") + `</div>`;
+  }).join("") + `</div><div class="sb-footer">Vivian</div>`;
   sb.querySelectorAll(".tab-item").forEach(b => b.onclick = () => switchTab(b.dataset.tab));
   sb.querySelectorAll(".tab-item").forEach(t => t.classList.toggle("active", t.dataset.tab === currentTab));
   setupSidebarDrag(sb.querySelector(".sb-tabs"));
