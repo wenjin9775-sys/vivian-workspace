@@ -204,12 +204,11 @@ function defaultItems() {
 function defaultState() {
   return {
     settings: { accent: "#ec4899", bgColor: "#fff5f9", bgImage: null, showSub: "记录生活 · 韩语学习 · 申请进度", userName: "Vivian" },
-    layout: { col1: ["countdown", "grammar", "vocabpractice", "todo", "life", "expense"], col2: ["inspiration", "gratitude", "skincare", "applications", "visa"] },
+    layout: { col1: ["countdown", "grammar", "vocabpractice", "fitness", "weight", "diet", "expense"], col2: ["inspiration", "gratitude", "skincare", "applications", "visa"] },
     expense: [],
     vocab: [],
     grammar: defaultGrammar(),
     vocabPractice: defaultVocabPractice(),
-    todo: [],
     life: { weight: [], fitness: [], diet: [] },
     inspiration: [],
     gratitude: [],
@@ -219,7 +218,6 @@ function defaultState() {
     countdowns: [],
     secondBrain: [],
     items: defaultItems(),
-    health: {},
     korean: defaultKoreanState(),
     coins: 0,
     planner: { today: [], week: [], goals: [], rewardDate: null },
@@ -263,11 +261,6 @@ function ensureSkincare() {
   if (!state.skincare || !state.skincare.cats || !state.skincare.cats.length) state.skincare = defaultSkincare();
 }
 function migrate() {
-  if (state.todo.length && state.todo[0].tasks === undefined) {
-    const map = {};
-    state.todo.forEach(t => { (map[t.date] = map[t.date] || []).push({ id: t.id || uid(), text: t.text, done: !!t.done }); });
-    state.todo = Object.entries(map).map(([date, tasks]) => ({ date, tasks }));
-  }
   if (state.life.fitness.length && state.life.fitness[0].tasks === undefined) {
     const map = {};
     state.life.fitness.forEach(f => { (map[f.date] = map[f.date] || []).push({ id: f.id || uid(), text: f.text, done: false }); });
@@ -310,8 +303,9 @@ function streakDays() {
   for (let i = 0; i < 30; i++) days.push(daysAgoStr(i));
   let streak = 0;
   for (const d of days) {
-    const active = state.todo.some(g => g.date === d && g.tasks.some(t => t.done)) ||
-      state.life.fitness.some(g => g.date === d && g.tasks.some(t => t.done)) ||
+    const active = state.life.fitness.some(g => g.date === d && g.tasks.some(t => t.done)) ||
+      state.life.weight.some(w => w.date === d) ||
+      state.life.diet.some(g => g.date === d && (g.items || []).length) ||
       state.skincare.cats.some(c => c.doneDates.includes(d)) ||
       state.vocabPractice.lessons.some(l => l.done);
     if (active) streak++; else if (d !== todayStr()) break;
@@ -350,8 +344,9 @@ const MODULES = [
   { id: "countdown", title: "倒计时", icon: "⏳", render: renderCountdown },
   { id: "grammar", title: "韩语语法", icon: "📚", render: renderGrammar },
   { id: "vocabpractice", title: "单词带练", icon: "🎧", render: renderVocabPractice },
-  { id: "todo", title: "To Do", icon: "✅", render: renderTodo },
-  { id: "life", title: "生活区", icon: "🌸", render: renderLife },
+  { id: "fitness", title: "健身运动", icon: "🏃", render: renderFitness },
+  { id: "weight", title: "体重记录", icon: "⚖️", render: renderWeight },
+  { id: "diet", title: "饮食记录", icon: "🍱", render: renderDiet },
   { id: "expense", title: "花销", icon: "💸", render: renderExpense },
   { id: "inspiration", title: "创作灵感", icon: "💡", render: renderInspiration },
   { id: "gratitude", title: "感恩日记", icon: "🙏", render: renderGratitude },
@@ -392,17 +387,16 @@ function renderHome() {
   const dietToday = state.life.diet.find(d => d.date === today);
   const kcal = dietToday ? dietToday.items.reduce((s, i) => s + (Number(i.kcal) || 0), 0) : 0;
   const wtArr = [...state.life.weight].sort((a, b) => a.date.localeCompare(b.date));
-  const latestW = wtArr.length ? wtArr[wtArr.length - 1].weight : null;
-
-  const allTasks = state.todo.flatMap(g => g.tasks);
-  const doneTasks = allTasks.filter(t => t.done).length;
-  const totalTasks = allTasks.length;
+  const latestW = wtArr.length ? Number(wtArr[wtArr.length - 1].weight) : null;
+  const prevW = wtArr.length >= 2 ? Number(wtArr[wtArr.length - 2].weight) : null;
+  const wtDelta = (latestW != null && prevW != null) ? (latestW - prevW) : null;
 
   const weekCheck = new Set();
   for (let i = 0; i < 7; i++) {
     const d = daysAgoStr(i);
-    if (state.todo.some(g => g.date === d && g.tasks.some(t => t.done)) ||
-      state.life.fitness.some(g => g.date === d && g.tasks.some(t => t.done)) ||
+    if (state.life.fitness.some(g => g.date === d && g.tasks.some(t => t.done)) ||
+      state.life.diet.some(g => g.date === d && (g.items || []).length) ||
+      state.life.weight.some(w => w.date === d) ||
       state.skincare.cats.some(c => c.doneDates.includes(d))) weekCheck.add(d);
   }
 
@@ -412,8 +406,9 @@ function renderHome() {
   const weekDays = [];
   for (let i = 6; i >= 0; i--) {
     const d = daysAgoStr(i);
-    const active = state.todo.some(g => g.date === d && g.tasks.some(t => t.done)) ||
-      state.life.fitness.some(g => g.date === d && g.tasks.some(t => t.done)) ||
+    const active = state.life.fitness.some(g => g.date === d && g.tasks.some(t => t.done)) ||
+      state.life.diet.some(g => g.date === d && (g.items || []).length) ||
+      state.life.weight.some(w => w.date === d) ||
       state.skincare.cats.some(c => c.doneDates.includes(d));
     weekDays.push({ d, dow: weekDay(d), dom: d.slice(8), active, isToday: d === today });
   }
@@ -437,12 +432,12 @@ function renderHome() {
 
   main.innerHTML = cdHeroHTML + `
     <div class="stat-grid">
-      <div class="stat-card" data-module="life"><div class="emoji">🏃</div><div class="value">${fitCount}<small>/${Math.max(3, fitCount)}</small></div><div class="label">今日运动</div></div>
-      <div class="stat-card" data-module="life"><div class="emoji">🍱</div><div class="value">${kcal}</div><div class="label">摄入 kcal</div></div>
-      <div class="stat-card" data-module="life"><div class="emoji">⚖️</div><div class="value">${latestW != null ? latestW : "--"}<small>${latestW != null ? "kg" : ""}</small></div><div class="label">最新 kg</div></div>
-      <div class="stat-card" data-module="todo"><div class="emoji">✅</div><div class="value">${doneTasks}</div><div class="label">今日完成</div></div>
-      <div class="stat-card" data-module="todo"><div class="emoji">📋</div><div class="value">${totalTasks}</div><div class="label">计划项目</div></div>
+      <div class="stat-card" data-module="fitness"><div class="emoji">🏃</div><div class="value">${fitCount}</div><div class="label">今日运动</div></div>
+      <div class="stat-card" data-module="diet"><div class="emoji">🍱</div><div class="value">${kcal}</div><div class="label">今日摄入 kcal</div></div>
+      <div class="stat-card" data-module="weight"><div class="emoji">⚖️</div><div class="value">${latestW != null ? latestW : "--"}<small>${latestW != null ? "kg" : ""}</small></div><div class="label">最新体重</div></div>
+      <div class="stat-card" data-module="weight"><div class="emoji">📉</div><div class="value">${wtDelta != null ? (wtDelta > 0 ? "+" : "") + wtDelta.toFixed(1) : "--"}<small>kg</small></div><div class="label">体重变化</div></div>
       <div class="stat-card" data-module="skincare"><div class="emoji">🔥</div><div class="value">${weekCheck.size}</div><div class="label">本周打卡</div></div>
+      <div class="stat-card" data-module="expense"><div class="emoji">💰</div><div class="value">${monthExpenseText()}</div><div class="label">本月花销</div></div>
     </div>
 
     <div class="section-title">📅 本周打卡</div>
@@ -456,9 +451,9 @@ function renderHome() {
 
     <div class="section-title">⚡ 今日速览</div>
     <div class="quick-list">
-      ${renderQuickRow("✅", "To Do", `${doneTasks}/${totalTasks} 完成`, "todo")}
+      ${renderQuickRow("🏃", "健身运动", `${fitCount} 项`, "fitness")}
+      ${renderQuickRow("⚖️", "体重记录", latestW != null ? `${latestW} kg` : "未记录", "weight")}
       ${renderQuickRow("🧴", "每日护肤", `${skinToday}/${state.skincare.cats.length} 已做`, "skincare")}
-      ${renderQuickRow("📚", "韩语语法", grammarProgressText(), "grammar")}
       ${renderQuickRow("💸", "本月花销", monthExpenseText(), "expense")}
     </div>
   `;
@@ -486,17 +481,16 @@ function renderQuickRow(icon, title, sub, id) {
 }
 function openDaySummary(date) {
   const wd = weekDay(date);
-  const todoGroup = state.todo.find(g => g.date === date);
-  const todoTasks = todoGroup ? todoGroup.tasks : [];
   const fitGroup = state.life.fitness.find(g => g.date === date);
   const fitTasks = fitGroup ? fitGroup.tasks : [];
   const dietDay = state.life.diet.find(d => d.date === date);
   const dietItems = dietDay ? dietDay.items : [];
   const skinCats = state.skincare.cats.filter(c => c.doneDates.includes(date));
+  const wtDay = state.life.weight.find(w => w.date === date);
+  const weightHTML = wtDay
+    ? `<div class="day-li"><span>⚖️</span> ${Number(wtDay.weight)} kg</div>`
+    : `<div class="empty" style="padding:8px 0">没有体重记录</div>`;
 
-  const todoHTML = todoTasks.length
-    ? todoTasks.map(t => `<div class="day-li ${t.done ? "done" : ""}"><span>${t.done ? "✓" : "○"}</span> ${esc(t.text)}</div>`).join("")
-    : `<div class="empty" style="padding:8px 0">没有任务</div>`;
   const fitHTML = fitTasks.length
     ? fitTasks.map(t => `<div class="day-li ${t.done ? "done" : ""}"><span>${t.done ? "✓" : "○"}</span> ${esc(t.text)}</div>`).join("")
     : `<div class="empty" style="padding:8px 0">没有运动记录</div>`;
@@ -512,7 +506,7 @@ function openDaySummary(date) {
     <div class="modal" style="max-height:84vh;width:min(480px,94%)">
       <div class="modal-head">${date} 星期${wd}<a class="modal-x" data-close>×</a></div>
       <div class="modal-body">
-        <div class="day-sec"><b>✅ To Do</b>${todoHTML}</div>
+        <div class="day-sec"><b>⚖️ 体重</b>${weightHTML}</div>
         <div class="day-sec"><b>🏃 运动</b>${fitHTML}</div>
         <div class="day-sec"><b>🍱 饮食</b>${dietHTML}</div>
         <div class="day-sec"><b>🧴 护肤</b>${skinHTML}</div>
@@ -544,8 +538,9 @@ function renderModules() {
   const weekDays = [];
   for (let i = 6; i >= 0; i--) {
     const d = daysAgoStr(i);
-    const on = state.todo.some(g => g.date === d && g.tasks.some(t => t.done)) ||
-      state.life.fitness.some(g => g.date === d && g.tasks.some(t => t.done)) ||
+    const on = state.life.fitness.some(g => g.date === d && g.tasks.some(t => t.done)) ||
+      state.life.diet.some(g => g.date === d && (g.items || []).length) ||
+      state.life.weight.some(w => w.date === d) ||
       state.skincare.cats.some(c => c.doneDates.includes(d)) ||
       state.grammar.books.some(b => b.chapters.some(c => (c.checkins || []).includes(d)));
     if (on) weekCheck.add(d);
@@ -555,7 +550,7 @@ function renderModules() {
   const pct = Math.round(checkCount / 7 * 100);
 
   // 各模块本周打卡明细
-  const detailModules = ["todo", "life", "skincare", "grammar"];
+  const detailModules = ["fitness", "weight", "diet", "skincare", "grammar"];
   const detailHTML = `<div class="mc-list-title">各模块打卡明细</div>` + detailModules.map(mid => {
     const m = MODULES.find(x => x.id === mid);
     const days = moduleWeekCheckedDays(mid);
@@ -601,9 +596,14 @@ function renderModules() {
 }
 function moduleBadge(id) {
   const today = todayStr();
-  if (id === "todo") {
-    const undone = state.todo.flatMap(g => g.tasks).filter(t => !t.done).length;
-    return undone || "";
+  if (id === "fitness") {
+    const g = state.life.fitness.find(x => x.date === today);
+    return g ? g.tasks.filter(t => !t.done).length || "" : "";
+  }
+  if (id === "weight") return state.life.weight.length || "";
+  if (id === "diet") {
+    const g = state.life.diet.find(x => x.date === today);
+    return g ? g.items.length || "" : "";
   }
   if (id === "skincare") {
     const n = state.skincare.cats.filter(c => c.doneDates.includes(today)).length;
@@ -626,11 +626,12 @@ function weekDaysSet() {
 function moduleWeekCheckedDays(id) {
   const last7 = weekDaysSet();
   const days = new Set();
-  if (id === "todo") {
-    state.todo.forEach(g => { if (last7.has(g.date) && g.tasks.some(t => t.done)) days.add(g.date); });
-  } else if (id === "life") {
+  if (id === "fitness") {
     state.life.fitness.forEach(g => { if (last7.has(g.date) && g.tasks.some(t => t.done)) days.add(g.date); });
+  } else if (id === "diet") {
     state.life.diet.forEach(g => { if (last7.has(g.date) && (g.items || []).length) days.add(g.date); });
+  } else if (id === "weight") {
+    state.life.weight.forEach(w => { if (last7.has(w.date)) days.add(w.date); });
   } else if (id === "skincare") {
     state.skincare.cats.forEach(c => c.doneDates.forEach(d => { if (last7.has(d)) days.add(d); }));
   } else if (id === "grammar") {
@@ -641,15 +642,19 @@ function moduleWeekCheckedDays(id) {
 function moduleProgress(id) {
   const last7 = weekDaysSet();
   switch (id) {
-    case "todo": {
-      const days = new Set();
-      state.todo.forEach(g => { if (last7.has(g.date) && g.tasks.some(t => t.done)) days.add(g.date); });
-      return { pct: Math.round(days.size / 7 * 100), text: `本周打卡 ${days.size}/7 天` };
-    }
-    case "life": {
+    case "fitness": {
       const days = new Set();
       state.life.fitness.forEach(g => { if (last7.has(g.date) && g.tasks.some(t => t.done)) days.add(g.date); });
+      return { pct: Math.round(days.size / 7 * 100), text: `本周打卡 ${days.size}/7 天` };
+    }
+    case "diet": {
+      const days = new Set();
       state.life.diet.forEach(g => { if (last7.has(g.date) && (g.items || []).length) days.add(g.date); });
+      return { pct: Math.round(days.size / 7 * 100), text: `本周打卡 ${days.size}/7 天` };
+    }
+    case "weight": {
+      const days = new Set();
+      state.life.weight.forEach(w => { if (last7.has(w.date)) days.add(w.date); });
       return { pct: Math.round(days.size / 7 * 100), text: `本周打卡 ${days.size}/7 天` };
     }
     case "skincare": {
@@ -748,18 +753,30 @@ function moduleRecordsHTML(id) {
       if (!done.length) return `<div class="empty">还没有完成的单词课</div>`;
       return done.map(l => `<div class="rec-item"><b>${esc(l.label)}</b><span>已完成 ✓</span></div>`).join("");
     }
-    case "todo": {
-      const items = state.todo.flatMap(g => g.tasks.map(t => ({ date: g.date, t })));
-      if (!items.length) return `<div class="empty">还没有待办</div>`;
-      return items.map(x => `<div class="rec-item ${x.t.done ? "done" : ""}"><b>${esc(x.t.text)}</b><span>${esc(x.date)} ${x.t.done ? "✓" : "○"}</span></div>`).join("");
-    }
-    case "life": {
+    case "fitness": {
       const rows = [];
-      state.life.weight.forEach(w => rows.push({ k: "体重", v: `${w.value} kg`, d: w.date }));
-      state.life.fitness.forEach(g => g.tasks.forEach(t => rows.push({ k: "运动", v: t.text, d: g.date, done: t.done })));
-      state.life.diet.forEach(g => (g.items || []).forEach(i => rows.push({ k: "饮食", v: `${i.name} ${Number(i.kcal) || 0}kcal`, d: g.date })));
-      if (!rows.length) return `<div class="empty">生活区还没有记录</div>`;
-      return rows.map(r => `<div class="rec-item ${r.done ? "done" : ""}"><b><span class="rec-k">${r.k}</span> ${esc(r.v)}</b><span>${esc(r.d)}</span></div>`).join("");
+      state.life.fitness.forEach(g => g.tasks.forEach(t => rows.push({ v: t.text, d: g.date, done: t.done })));
+      if (!rows.length) return `<div class="empty">还没有运动记录</div>`;
+      return rows.map(r => `<div class="rec-item ${r.done ? "done" : ""}"><b>${esc(r.v)}</b><span>${esc(r.d)} ${r.done ? "✓" : "○"}</span></div>`).join("");
+    }
+    case "weight": {
+      const arr = [...state.life.weight].sort((a, b) => b.date.localeCompare(a.date));
+      if (!arr.length) return `<div class="empty">还没有体重记录</div>`;
+      let prev = null;
+      return arr.map(w => {
+        const cur = Number(w.weight);
+        const delta = prev != null ? cur - prev : null;
+        const dtxt = delta == null ? `<span class="rec-k">基准</span>` : `<span class="rec-k">${delta > 0 ? "▲ +" : "▼ "}${delta.toFixed(1)} kg</span>`;
+        const html = `<div class="rec-item"><b>⚖️ ${cur} kg ${dtxt}</b><span>${esc(w.date)}</span></div>`;
+        prev = cur;
+        return html;
+      }).join("");
+    }
+    case "diet": {
+      const rows = [];
+      state.life.diet.forEach(g => (g.items || []).forEach(i => rows.push({ v: `${i.name} ${Number(i.kcal) || 0}kcal`, d: g.date })));
+      if (!rows.length) return `<div class="empty">还没有饮食记录</div>`;
+      return rows.map(r => `<div class="rec-item"><b>${esc(r.v)}</b><span>${esc(r.d)}</span></div>`).join("");
     }
     case "expense": {
       if (!state.expense.length) return `<div class="empty">还没有花销记录</div>`;
@@ -1028,7 +1045,6 @@ function renderMe() {
       <button class="me-item" id="me-theme"><span class="icon">🎨</span><span class="text">主题色</span><span class="arrow">›</span></button>
       <button class="me-item" id="me-name"><span class="icon">✏️</span><span class="text">修改称呼</span><span class="arrow">›</span></button>
       <button class="me-item" id="me-clear"><span class="icon">🗑</span><span class="text">清空所有数据</span><span class="arrow">›</span></button>
-      <button class="me-item" id="me-health"><span class="icon">🍎</span><span class="text">健康数据同步（Apple 手表）</span><span class="arrow">›</span></button>
     </div>
   `;
   main.querySelector("#me-auth").onclick = onAuthClick;
@@ -1041,54 +1057,8 @@ function renderMe() {
     if (!confirm("确定清空所有数据？此操作不可恢复。")) return;
     state = defaultState(); save(); applyTheme(); renderHeader(); renderMe(); toast("已清空");
   };
-  main.querySelector("#me-health").onclick = openHealthSyncModal;
 }
 
-function openHealthSyncModal() {
-  const root = document.getElementById("modal-root");
-  const endpoint = location.origin + "/api/health";
-  const token = authToken || "";
-  const sample = JSON.stringify({
-    date: todayStr(),
-    steps: 8500,
-    activeCalories: 420,
-    restingCalories: 1500,
-    distanceKm: 6.2,
-    workouts: [{ name: "跑步", calories: 280, durationMin: 32 }]
-  }, null, 2);
-  const guide = `
-    <ol class="hs-guide">
-      <li>iPhone 打开「快捷指令」App → 右上角 <b>+</b> 新建。</li>
-      <li>加「<b>获取健康样本</b>」：类型选「活动能量」，时间今天，汇总「总和」→ 设变量 <b>活动消耗</b>。</li>
-      <li>再加「获取健康样本」：类型「步数」→ 变量 <b>步数</b>；再加「步行+跑步距离」→ 变量 <b>距离</b>。</li>
-      <li>加「获取健康样本」：类型「体能训练」，今天 → 用「重复每张」把每个训练的「名称/总能量/持续时间（分钟）」塞进一个字典数组 <b>运动</b>。</li>
-      <li>加「<b>获取 URL 内容</b>」：方法 POST，URL 填下面的接口地址；请求体选 JSON，内容为：
-        <code>{ "date": "当前日期", "steps": 步数, "activeCalories": 活动消耗, "distanceKm": 距离, "workouts": 运动 }</code></li>
-      <li>在「获取 URL 内容」的请求头里加 <b>Authorization</b> = <b>Bearer &lt;下方同步令牌&gt;</b>。</li>
-      <li>保存，命名为「同步健康到 Vivian」。以后每天点一下，或在「自动化」里设「每天 23:00 自动运行」。</li>
-    </ol>`;
-  root.innerHTML = `<div class="modal-backdrop"><div class="modal" style="max-height:88vh;width:min(560px,94%)">
-    <div class="modal-head">🍎 健康数据同步（Apple 手表）<a class="modal-x" data-close>×</a></div>
-    <div class="modal-body">
-      <p class="muted" style="margin:0 0 10px">Apple 健康数据只能由 iPhone 原生读取，网页读不到。用「快捷指令」每天把当天数据推给工作台即可（无需开发者账号）。</p>
-      <div class="muted" style="font-weight:700">① 接口地址</div>
-      <div class="hs-row"><input id="hs-ep" value="${esc(endpoint)}" readonly/><button class="btn sm" id="hs-copy-ep">复制</button></div>
-      <div class="muted" style="font-weight:700;margin-top:8px">② 同步令牌（Bearer）</div>
-      <div class="hs-row"><input id="hs-tk" value="${esc(token)}" readonly/><button class="btn sm" id="hs-copy-tk">复制</button></div>
-      ${authToken ? "" : `<div class="hs-warn">⚠️ 当前未登录，没有令牌。请先在「我的 → 登录/注册」登录后再来复制。</div>`}
-      <div class="muted" style="font-weight:700;margin-top:10px">③ 快捷指令搭建步骤</div>
-      ${guide}
-      <div class="muted" style="font-weight:700">示例请求体（POST JSON）</div>
-      <pre class="hs-pre">${esc(sample)}</pre>
-    </div>
-  </div></div>`;
-  const bd = root.querySelector(".modal-backdrop");
-  bd.querySelector("[data-close]").onclick = () => (root.innerHTML = "");
-  bd.onclick = (e) => { if (e.target === bd) root.innerHTML = ""; };
-  const copy = (sel, msg) => { const el = root.querySelector(sel); el.select(); try { document.execCommand("copy"); } catch (e) {}; if (navigator.clipboard) navigator.clipboard.writeText(el.value).catch(()=>{}); toast(msg); };
-  root.querySelector("#hs-copy-ep").onclick = () => copy("#hs-ep", "接口地址已复制");
-  root.querySelector("#hs-copy-tk").onclick = () => copy("#hs-tk", "令牌已复制");
-}
 function openThemePicker() {
   const root = document.getElementById("modal-root");
   const swatches = ACCENTS.map(a => `<span class="swatch ${a === state.settings.accent ? "active" : ""}" data-accent="${a}" style="background:${a}"></span>`).join("");
@@ -1644,93 +1614,19 @@ function currentLessonLabel() {
   return firstUndone ? firstUndone.label : (ls.length ? ls[ls.length - 1].label : "—");
 }
 
-/* ---------- To Do ---------- */
-function renderTodo(c) {
-  let selected = todayStr();
-  const dates = last7Days(selected);
-  c.innerHTML = `
-    <div class="ds-wrap" id="td-ds"></div>
-    <div class="form-grid">
-      <input placeholder="添加一项任务…" id="td-text" />
-      <button class="btn full" id="td-add">+ 添加任务</button>
-    </div>
-    <div class="list" id="td-list"></div>`;
-  const listEl = c.querySelector("#td-list");
-  renderDateStrip(c.querySelector("#td-ds"), selected, dates, (d) => { selected = d; draw(); });
-  function getGroup(date) { return state.todo.find(x => x.date === date); }
-  function ensureGroup(date) {
-    let g = state.todo.find(x => x.date === date);
-    if (!g) { g = { date, tasks: [] }; state.todo.push(g); }
-    return g;
-  }
-  function draw() {
-    const g = getGroup(selected);
-    const total = g ? g.tasks.length : 0;
-    const done = g ? g.tasks.filter(t => t.done).length : 0;
-    if (!total) { listEl.innerHTML = `<div class="empty">${selected === todayStr() ? "今天还没有任务" : "这一天还没有任务"}</div>`; return; }
-    const pct = Math.round(done / total * 100);
-    listEl.innerHTML = `
-      <div class="item" style="border-left:3px solid var(--accent);margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-          <b style="font-size:13px">📅 ${esc(selected)}</b>
-          <span class="chip">${done}/${total}</span>
-        </div>
-        <div class="pbar" style="margin:6px 0"><i style="width:${pct}%"></i></div>
-      </div>
-      ${g.tasks.sort((a, b) => a.done - b.done).map(t => `<div class="item" style="padding:7px 10px;display:flex;gap:9px;align-items:flex-start">
-        <input type="checkbox" data-task="${selected}|${t.id}" ${t.done ? "checked" : ""} style="width:17px;height:17px;accent-color:var(--accent);margin-top:2px;flex:none"/>
-        <span style="${t.done ? "text-decoration:line-through;color:var(--ink-soft)" : ""};font-size:13px;flex:1">${esc(t.text)}</span>
-        <button class="del" data-deltask="${selected}|${t.id}">×</button>
-      </div>`).join("")}`;
-    listEl.querySelectorAll("[data-task]").forEach(b => b.onchange = () => {
-      const [d, iid] = b.dataset.task.split("|");
-      const gg = state.todo.find(x => x.date === d); const t = gg && gg.tasks.find(x => x.id === iid);
-      if (t) { t.done = b.checked; save(); draw(); renderHeader(); }
-    });
-    listEl.querySelectorAll("[data-deltask]").forEach(b => b.onclick = () => {
-      const [d, iid] = b.dataset.deltask.split("|");
-      const gg = state.todo.find(x => x.date === d);
-      if (gg) { gg.tasks = gg.tasks.filter(x => x.id !== iid); if (!gg.tasks.length) state.todo = state.todo.filter(x => x.date !== d); save(); draw(); renderHeader(); }
-    });
-  }
-  draw();
-  c.querySelector("#td-add").onclick = () => {
-    const text = c.querySelector("#td-text").value.trim();
-    if (!text) return toast("请输入任务");
-    ensureGroup(selected).tasks.push({ id: uid(), text, done: false });
-    save(); c.querySelector("#td-text").value = ""; draw(); renderHeader();
-  };
-}
 
-/* ---------- 生活区 ---------- */
-function renderLife(c) {
+function renderFitness(c) {
   let selected = todayStr();
   const dates = last7Days(selected);
   c.innerHTML = `
-    <div class="ds-wrap" id="life-ds"></div>
-    <div class="health-sync" id="hlth-box"></div>
+    <div class="ds-wrap" id="fit-ds"></div>
     <div class="muted" style="font-weight:700;margin-bottom:4px">🏃 健身运动</div>
     <div class="form-grid">
       <input placeholder="训练项目，如 跑步30分钟" id="fit-text" />
       <button class="btn full" id="fit-add">+ 添加项目</button>
     </div>
-    <div class="list" id="fit-list"></div>
-    <div class="muted" style="font-weight:700;margin:14px 0 4px">⚖️ 体重记录</div>
-    <div class="form-grid">
-      <input type="number" step="0.1" placeholder="体重 kg" id="wt-val" />
-      <button class="btn full" id="wt-add">记录体重</button>
-    </div>
-    <div id="wt-chart" style="margin:8px 0"></div>
-    <div class="list" id="wt-list"></div>
-    <div class="muted" style="font-weight:700;margin:14px 0 4px">🍱 饮食记录（自动算卡路里）</div>
-    <div class="form-grid">
-      <input placeholder="食物名" id="diet-name" />
-      <input type="number" placeholder="卡路里 kcal" id="diet-kcal" />
-      <button class="btn full" id="diet-add">+ 添加食物</button>
-      <button class="btn ghost full" id="diet-pic">📷 上传今日饮食图</button>
-    </div>
-    <div class="list" id="diet-list"></div>`;
-  renderDateStrip(c.querySelector("#life-ds"), selected, dates, (d) => { selected = d; drawAll(); });
+    <div class="list" id="fit-list"></div>`;
+  renderDateStrip(c.querySelector("#fit-ds"), selected, dates, (d) => { selected = d; drawAll(); });
   const fitList = c.querySelector("#fit-list");
   function getFitGroup(date) { return state.life.fitness.find(x => x.date === date); }
   function ensureFitGroup(date) {
@@ -1768,26 +1664,57 @@ function renderLife(c) {
       if (gg) { gg.tasks = gg.tasks.filter(x => x.id !== iid); if (!gg.tasks.length) state.life.fitness = state.life.fitness.filter(x => x.date !== d); save(); renderHeader(); drawAll(); }
     });
   }
-  const wtList = c.querySelector("#wt-list");
-  const wtChart = c.querySelector("#wt-chart");
-  function drawWt() {
-    const arr = [...state.life.weight].sort((a, b) => a.date.localeCompare(b.date));
-    wtChart.innerHTML = sparklineBig(arr.map(x => ({ d: x.date, v: Number(x.weight) })));
-    const w = state.life.weight.find(x => x.date === selected);
-    if (!w) { wtList.innerHTML = `<div class="empty">${selected === todayStr() ? "今天还没有记录体重" : "这一天还没有记录体重"}</div>`; return; }
-    wtList.innerHTML = `<div class="item" style="display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:13px">${esc(w.date)}</span><b>${w.weight} kg</b>
-      <button class="del" data-del="${w.id}">×</button></div>`;
-    wtList.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
-      state.life.weight = state.life.weight.filter(x => x.id !== b.dataset.del); save(); renderHeader(); drawAll();
-    });
-  }
   c.querySelector("#fit-add").onclick = () => {
     const text = c.querySelector("#fit-text").value.trim();
     if (!text) return toast("写点训练内容吧");
     ensureFitGroup(selected).tasks.push({ id: uid(), text, done: false });
     save(); c.querySelector("#fit-text").value = ""; renderHeader(); drawAll();
   };
+  function drawAll() { drawFit(); }
+  drawAll();
+}
+
+function renderWeight(c) {
+  let selected = todayStr();
+  const dates = last7Days(selected);
+  c.innerHTML = `
+    <div class="ds-wrap" id="wt-ds"></div>
+    <div class="muted" style="font-weight:700;margin-bottom:4px">⚖️ 记录今日体重</div>
+    <div class="form-grid">
+      <input type="number" step="0.1" placeholder="体重 kg" id="wt-val" />
+      <button class="btn full" id="wt-add">记录体重</button>
+    </div>
+    <div id="wt-chart" style="margin:8px 0"></div>
+    <div class="muted" style="font-weight:700;margin:14px 0 4px">📅 每日体重数据</div>
+    <div class="list" id="wt-history"></div>`;
+  renderDateStrip(c.querySelector("#wt-ds"), selected, dates, (d) => { selected = d; drawAll(); });
+  const wtChart = c.querySelector("#wt-chart");
+  const wtHistory = c.querySelector("#wt-history");
+  function drawWt() {
+    const arr = [...state.life.weight].sort((a, b) => a.date.localeCompare(b.date));
+    wtChart.innerHTML = sparklineBig(arr.map(x => ({ d: x.date, v: Number(x.weight) })));
+    const hist = [...state.life.weight].sort((a, b) => b.date.localeCompare(a.date));
+    if (!hist.length) { wtHistory.innerHTML = `<div class="empty">还没有体重记录，在上方记下今天的体重吧</div>`; return; }
+    let prev = null;
+    wtHistory.innerHTML = hist.map(w => {
+      const cur = Number(w.weight);
+      const delta = prev != null ? cur - prev : null;
+      const dtxt = delta == null
+        ? `<span class="muted" style="font-size:11px">基准</span>`
+        : `<span style="font-size:11px;color:${delta > 0 ? "#e11d48" : "#16a34a"}">${delta > 0 ? "▲ +" : "▼ "}${delta.toFixed(1)} kg</span>`;
+      return `<div class="item" style="display:flex;align-items:center;gap:10px">
+        <div style="flex:1">
+          <b style="font-size:14px">${cur} kg</b>
+          <div class="muted" style="font-size:11px">${esc(w.date)}</div>
+        </div>
+        ${dtxt}
+        <button class="del" data-wtdel="${w.id}">×</button>
+      </div>`;
+    }).join("");
+    wtHistory.querySelectorAll("[data-wtdel]").forEach(b => b.onclick = () => {
+      state.life.weight = state.life.weight.filter(x => x.id !== b.dataset.wtdel); save(); renderHeader(); drawAll();
+    });
+  }
   c.querySelector("#wt-add").onclick = () => {
     const v = parseFloat(c.querySelector("#wt-val").value);
     if (isNaN(v)) return toast("请输入体重");
@@ -1795,6 +1722,24 @@ function renderLife(c) {
     if (ex) ex.weight = v; else state.life.weight.push({ id: uid(), weight: v, date: selected });
     save(); c.querySelector("#wt-val").value = ""; renderHeader(); drawAll();
   };
+  function drawAll() { drawWt(); }
+  drawAll();
+}
+
+function renderDiet(c) {
+  let selected = todayStr();
+  const dates = last7Days(selected);
+  c.innerHTML = `
+    <div class="ds-wrap" id="diet-ds"></div>
+    <div class="muted" style="font-weight:700;margin-bottom:4px">🍱 饮食记录（自动算卡路里）</div>
+    <div class="form-grid">
+      <input placeholder="食物名" id="diet-name" />
+      <input type="number" placeholder="卡路里 kcal" id="diet-kcal" />
+      <button class="btn full" id="diet-add">+ 添加食物</button>
+      <button class="btn ghost full" id="diet-pic">📷 上传今日饮食图</button>
+    </div>
+    <div class="list" id="diet-list"></div>`;
+  renderDateStrip(c.querySelector("#diet-ds"), selected, dates, (d) => { selected = d; drawAll(); });
   const dietList = c.querySelector("#diet-list");
   function getDietDay(date) { return state.life.diet.find(x => x.date === date); }
   function ensureDietDay(date) {
@@ -1835,33 +1780,10 @@ function renderLife(c) {
   c.querySelector("#diet-pic").onclick = () => {
     uploadImage(id => { ensureDietDay(selected).img = id; save(); drawAll(); });
   };
-  function drawHealth() {
-    const box = c.querySelector("#hlth-box");
-    if (!box) return;
-    const h = state.health && state.health[selected];
-    if (!h) {
-      box.innerHTML = `<div class="hs-empty">🍎 还没同步健康数据 · 去「我的 → 健康同步」用快捷指令连 Apple 手表</div>`;
-      return;
-    }
-    const wk = (h.workouts || []);
-    const wkCount = wk.length;
-    const wkMin = wk.reduce((s, w) => s + (w.durationMin || 0), 0);
-    const cell = (label, val) => val != null && val !== "" ? `<div class="hs-cell"><b>${esc(String(val))}</b><span>${esc(label)}</span></div>` : "";
-    box.innerHTML = `
-      <div class="hs-head"><span>🍎 Apple 健康</span><span class="hs-time">${h.syncedAt ? new Date(h.syncedAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}</span></div>
-      <div class="hs-grid">
-        ${cell("步数", h.steps)}
-        ${cell("活动消耗", h.activeCalories != null ? h.activeCalories + " kcal" : null)}
-        ${cell("静息消耗", h.restingCalories != null ? h.restingCalories + " kcal" : null)}
-        ${cell("运动", wkCount ? wkCount + " 次" : null)}
-        ${cell("运动时长", wkMin ? wkMin + " 分" : null)}
-        ${cell("距离", h.distanceKm != null ? h.distanceKm + " km" : null)}
-      </div>
-      ${wkCount ? `<div class="hs-wk">${wk.map(w => `<span class="hs-tag">${esc(w.name)}${w.calories != null ? " · " + w.calories + " kcal" : ""}</span>`).join("")}</div>` : ""}`;
-  }
-  function drawAll() { drawHealth(); drawFit(); drawWt(); drawDiet(); }
+  function drawAll() { drawDiet(); }
   drawAll();
 }
+
 function sparklineBig(arr) {
   if (!arr.length) return `<div class="muted">记录体重看趋势</div>`;
   const w = 280, h = 60, vals = arr.map(x => x.v), max = Math.max(...vals), min = Math.min(...vals), span = max - min || 1;
