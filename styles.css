@@ -658,3 +658,134 @@ button{font-family:var(--font);cursor:pointer;}
 .kr-culture b{font-size:13px;color:var(--ink);display:block;margin-bottom:6px;}
 .kr-culture-body{font-size:11.5px;color:var(--ink-soft);line-height:1.6;text-align:left;}
 
+/* =========================================================================
+   韩语新增子页（词汇量测试 / 单词书 / 单词游戏）
+   ========================================================================= */
+.kr-test-result{text-align:center;padding:24px 12px;}
+.kr-level-tag{display:inline-block;margin-top:10px;background:var(--accent);color:#fff;border-radius:999px;padding:6px 18px;font-weight:700;font-size:14px;}
+.kr-card-book{background:var(--card);border-radius:12px;padding:12px;box-shadow:var(--shadow);margin-bottom:10px;}
+.kr-card-book.done{opacity:.72;}
+.kr-cb-head{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.kr-cb-head b{font-size:17px;color:var(--ink);}
+.kr-cb-cn{font-size:12px;color:var(--ink-soft);margin:5px 0;}
+.kr-cb-acts{display:flex;gap:8px;margin-top:4px;}
+.kr-lv{display:inline-block;font-size:10px;background:#ffe4ef;color:var(--accent);border-radius:6px;padding:1px 6px;margin-left:4px;}
+.kr-book-fav{background:var(--card);border-radius:14px;padding:14px;box-shadow:var(--shadow);margin-top:14px;}
+.kr-book-fav > b{font-size:13px;color:var(--ink);}
+.kr-book-fav #kr-fav-list{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;}
+.kr-book-prog{font-size:12px;color:var(--ink-soft);margin:12px 0 4px;text-align:center;font-weight:600;}
+.kr-chip.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+.kr-game-input{width:100%;border:1px solid var(--line);border-radius:12px;padding:13px;font-size:16px;text-align:center;margin:12px 0;background:#fff;color:var(--ink);}
+.kr-game-input:focus{outline:none;border-color:var(--accent);}
+
+/* =========================================================================
+   生活模块 life.js 通用样式（粉白主题，复用 --accent 体系）
+   ========================================================================= */
+.lm-subtabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.lm-subtab{border:1px solid var(--line);background:var(--card);color:var(--ink-soft);border-radius:999px;padding:8px 15px;font-size:12.5px;font-weight:600;cursor:pointer;transition:all .15s;}
+.lm-subtab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.lm-card{background:var(--card);border-radius:var(--radius-sm);box-shadow:var(--shadow);padding:14px;margin-bottom:12px;}
+.lm-card-title{font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
+.lm-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;}
+.lm-input{flex:1;min-width:120px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px;background:#fff;color:var(--ink);}
+.lm-input:focus{outline:none;border-color:var(--accent);}
+.lm-mini{border:1px solid var(--line);background:#fff;color:var(--ink-soft);border-radius:10px;padding:6px 11px;font-size:12px;cursor:pointer;transition:all .15s;}
+.lm-mini.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+.lm-chip{display:inline-block;border:1px solid var(--line);background:#fff;color:var(--ink-soft);border-radius:999px;padding:6px 13px;font-size:12px;cursor:pointer;margin:0 6px 6px 0;transition:all .15s;}
+.lm-chip.active,.lm-chip.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+.lm-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.lm-del{border:none;background:transparent;color:#f43f5e;font-size:17px;cursor:pointer;padding:2px 6px;line-height:1;}
+.lm-list{display:flex;flex-direction:column;gap:8px;}
+.lm-hint{font-size:11.5px;color:var(--ink-soft);background:#fff0f6;border-radius:10px;padding:8px 10px;margin:8px 0;line-height:1.5;}
+.lm-progress{height:9px;background:#ffe4ef;border-radius:999px;overflow:hidden;margin-top:8px;}
+.lm-progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-deep,#be185d));border-radius:999px;transition:width .3s;}
+.lm-stat-row{display:flex;gap:10px;margin-bottom:12px;}
+.lm-stat{flex:1;background:var(--card);border-radius:var(--radius-sm);box-shadow:var(--shadow);padding:12px;text-align:center;}
+.lm-stat .n{font-size:21px;font-weight:800;color:var(--accent);}
+.lm-stat .l{font-size:11px;color:var(--ink-soft);margin-top:2px;}
+.lm-chart-box{position:relative;height:210px;background:var(--card);border-radius:var(--radius-sm);box-shadow:var(--shadow);padding:12px;margin:10px 0;}
+.lm-link{color:var(--accent);text-decoration:none;font-size:12px;}
+.lm-range{width:100%;accent-color:var(--accent);}
+.lm-status{display:inline-block;font-size:11px;padding:3px 10px;border-radius:999px;background:#ffe4ef;color:var(--accent);font-weight:600;}
+
+/* 弹层 */
+.lm-mask{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:flex-end;justify-content:center;z-index:9000;padding:0;}
+.lm-sheet{width:100%;max-width:520px;background:var(--bg);border-radius:18px 18px 0 0;padding:18px;max-height:86vh;overflow:auto;box-shadow:0 -8px 30px rgba(0,0,0,.15);}
+.lm-modal-actions{display:flex;gap:10px;margin-top:14px;justify-content:flex-end;}
+@media(min-width:560px){.lm-mask{align-items:center;}.lm-sheet{border-radius:18px;}}
+
+/* 任务（每日计划） */
+.lm-task{display:flex;gap:10px;align-items:flex-start;background:var(--card);border-radius:12px;padding:10px 12px;box-shadow:var(--shadow);}
+.lm-task-main{flex:1;min-width:0;}
+.lm-task-text{font-size:13px;color:var(--ink);word-break:break-word;}
+.lm-task-meta{font-size:11px;color:var(--ink-soft);margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;}
+.lm-check{width:20px;height:20px;border-radius:6px;border:2px solid var(--accent);cursor:pointer;flex:none;margin-top:2px;transition:background .15s;}
+.lm-task.done .lm-check{background:var(--accent);}
+.lm-task.done .lm-task-text{text-decoration:line-through;color:var(--ink-soft);}
+.lm-reward{background:linear-gradient(135deg,#fff0f6,#ffe4ef);border-radius:14px;padding:14px;text-align:center;margin-top:10px;}
+.lm-reward .coin{font-size:24px;}
+
+/* 长期目标 */
+.lm-goals{display:flex;flex-direction:column;gap:10px;}
+.lm-goal{background:var(--card);border-radius:12px;padding:12px;box-shadow:var(--shadow);}
+.lm-goal-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;gap:8px;}
+.lm-goal-title{font-size:13px;font-weight:700;color:var(--ink);}
+.lm-goal-bar{height:9px;background:#ffe4ef;border-radius:999px;overflow:hidden;}
+.lm-goal-bar > i{display:block;height:100%;background:var(--accent);border-radius:999px;transition:width .3s;}
+
+/* 运动打卡热力图 */
+.ex-heat{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:10px 0;}
+.ex-cell{aspect-ratio:1;border-radius:8px;background:#ffe4ef;display:flex;align-items:center;justify-content:center;font-size:15px;}
+.ex-cell.on{background:var(--accent);}
+
+/* 心情日记日历 */
+.mood-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:8px;}
+.mood-wrow{font-size:10px;color:var(--ink-soft);text-align:center;}
+.mood-cell{aspect-ratio:1;border-radius:9px;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;box-shadow:var(--shadow);}
+.mood-cell.empty{background:transparent;box-shadow:none;}
+.mood-e{font-size:18px;line-height:1;}
+.mood-en{position:absolute;bottom:4px;width:7px;height:7px;border-radius:50%;}
+
+/* 习惯打卡热力图 */
+.habit-heat{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin:8px 0;}
+.hh-cell{aspect-ratio:1;border-radius:7px;background:#ffe4ef;}
+.hh-cell.on{background:var(--accent);}
+.hh-legend{font-size:11px;color:var(--ink-soft);margin-top:6px;}
+.lm-habits{display:flex;flex-direction:column;gap:10px;}
+.lm-habit{display:flex;gap:12px;align-items:center;background:var(--card);border-radius:14px;padding:12px;box-shadow:var(--shadow);}
+.lm-habit-emoji{font-size:26px;}
+.lm-habit-main{flex:1;}
+.lm-habit-name{font-size:13px;font-weight:700;color:var(--ink);}
+.lm-habit-meta{font-size:11px;color:var(--ink-soft);margin-top:2px;}
+.lm-habit-btn{width:46px;height:46px;border-radius:14px;border:2px solid var(--accent);background:#fff;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;flex:none;transition:all .15s;}
+.lm-habit-btn.on{background:var(--accent);color:#fff;}
+
+/* 旅行计划 */
+.lm-travel{display:flex;flex-direction:column;gap:10px;}
+.lm-trip{background:var(--card);border-radius:14px;padding:14px;box-shadow:var(--shadow);}
+.lm-trip-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;}
+.lm-trip-name{font-size:14px;font-weight:700;color:var(--ink);}
+.lm-trip-meta{font-size:11px;color:var(--ink-soft);}
+.lm-trip-sec{font-size:12px;color:var(--ink);margin-top:8px;display:flex;gap:8px;align-items:flex-start;}
+.lm-trip-sec::before{content:"•";color:var(--accent);}
+
+/* 自媒体创作 / 灵感 */
+.lm-hot{background:var(--card);border-radius:12px;padding:12px;box-shadow:var(--shadow);margin-bottom:10px;}
+.lm-hot-head{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:6px;display:flex;justify-content:space-between;gap:8px;}
+.lm-hot-why{font-size:12px;color:var(--ink-soft);line-height:1.55;}
+.lm-hot-idea{font-size:12px;color:var(--accent-deep,#be185d);background:#fff0f6;border-radius:8px;padding:9px;margin-top:7px;line-height:1.5;}
+.lm-review{font-size:12px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:8px;padding:9px;margin-top:7px;line-height:1.5;}
+
+/* 记录列表（读书等） */
+.rec-book{background:var(--card);border-radius:12px;padding:10px 12px;box-shadow:var(--shadow);margin-bottom:8px;}
+.rec-book b{color:var(--ink);font-size:13px;}
+.rec-book span{color:var(--ink-soft);font-size:11.5px;}
+
+/* 发布日历 / 灵感看板小标记 */
+.cal-dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
+.cal-count{font-size:10px;color:var(--ink-soft);}
+
+/* btn 变体补全 */
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink-soft);}
+.btn.sm{padding:6px 12px;font-size:12px;}
+

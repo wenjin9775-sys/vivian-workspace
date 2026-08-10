@@ -220,7 +220,17 @@ function defaultState() {
     secondBrain: [],
     items: defaultItems(),
     health: {},
-    korean: defaultKoreanState()
+    korean: defaultKoreanState(),
+    coins: 0,
+    planner: { today: [], week: [], goals: [], rewardDate: null },
+    accounting: { records: [] },
+    exercise: { logs: [] },
+    mood: { logs: [] },
+    reading: { goal: 12, books: [], recIdx: 0 },
+    travel: { plans: [] },
+    media: { topics: [], hot: [] },
+    inspo: { notes: [], materials: [], noteFilter: "" },
+    habit: { habits: [] }
   };
 }
 let state = loadState();
@@ -788,6 +798,46 @@ function moduleRecordsHTML(id) {
         if (!cat.items.length) return `<div class="rec-item"><b>${esc(cat.name)}</b><span>暂无物品</span></div>`;
         return cat.items.map(it => `<div class="rec-item ${it.used ? "done" : ""}"><b><span class="rec-k">${esc(cat.name)}</span> ${esc(it.name)}</b><span>${it.used ? "已使用 ✓" : "待使用"}${it.note ? " · " + esc(it.note) : ""}</span></div>`).join("");
       }).join("");
+    }
+    case "planner": {
+      const t = state.planner.today, g = state.planner.goals;
+      if (!t.length && !g.length) return `<div class="empty">还没有计划</div>`;
+      return [...t.map(x => `<div class="rec-item ${x.done ? "done" : ""}"><b>${esc(x.text)}</b><span>${esc(x.cat || "")} · ${x.done ? "✓" : "○"}</span></div>`),
+        ...g.map(x => `<div class="rec-item"><b>${esc(x.title)}</b><span>进度 ${x.progress || 0}%</span></div>`)].join("");
+    }
+    case "accounting": {
+      if (!state.accounting.records.length) return `<div class="empty">还没有记账</div>`;
+      return state.accounting.records.slice().reverse().map(r => `<div class="rec-item"><b>${r.type === "in" ? "+" : "-"}${r.amount} · ${esc(r.cat)}</b><span>${esc(r.date)} ${esc(r.note || "")}</span></div>`).join("");
+    }
+    case "exercise": {
+      if (!state.exercise.logs.length) return `<div class="empty">还没有运动记录</div>`;
+      return state.exercise.logs.slice().reverse().map(l => `<div class="rec-item"><b>${esc(l.type)} · ${l.duration}分钟</b><span>${esc(l.date)}${l.hr ? " · 心率" + l.hr : ""}</span></div>`).join("");
+    }
+    case "mood": {
+      if (!state.mood.logs.length) return `<div class="empty">还没有心情记录</div>`;
+      return state.mood.logs.slice().reverse().map(l => `<div class="rec-item"><b>精力${l.energy}/10 · 睡眠${l.sleep}h</b><span>${esc(l.date)}</span><div class="rec-body">${esc(l.text || "")}</div></div>`).join("");
+    }
+    case "reading": {
+      if (!state.reading.books.length) return `<div class="empty">还没有书</div>`;
+      return state.reading.books.slice().reverse().map(b => `<div class="rec-item ${b.status === "done" ? "done" : ""}"><b>${esc(b.title)}</b><span>${esc(b.author || "")} · ${b.status === "done" ? "已读 " + (b.rating || "") + "分" : "在读"}</span></div>`).join("");
+    }
+    case "travel": {
+      if (!state.travel.plans.length) return `<div class="empty">还没有旅行计划</div>`;
+      return state.travel.plans.map(p => `<div class="rec-item"><b>${esc(p.name)}</b><span>${esc(p.dest || "")} · ${p.itinerary.length}行程 / ${p.packing.length}打包</span></div>`).join("");
+    }
+    case "media": {
+      if (!state.media.topics.length) return `<div class="empty">还没有选题</div>`;
+      return state.media.topics.map(t => `<div class="rec-item"><b>${esc(t.title)}</b><span>${esc(t.platform)} · ${esc(t.status)}${t.deadline ? " · " + esc(t.deadline) : ""}</span></div>`).join("");
+    }
+    case "inspo": {
+      const n = state.inspo.notes.length, m = state.inspo.materials.length;
+      if (!n && !m) return `<div class="empty">还没有灵感</div>`;
+      return [...state.inspo.notes.slice(0, 20).map(x => `<div class="rec-item"><b>💡 ${esc(x.text)}</b><span>${esc(x.tag || "")} · ${esc(x.time || "")}</span></div>`),
+        ...state.inspo.materials.slice(0, 10).map(x => `<div class="rec-item"><b>📎 ${esc(x.summary)}</b><span>${esc(x.cat || "")} · ${esc(x.source || "")}</span></div>`)].join("");
+    }
+    case "habit": {
+      if (!state.habit.habits.length) return `<div class="empty">还没有习惯</div>`;
+      return state.habit.habits.map(h => `<div class="rec-item"><b>${esc(h.emoji || "⭐")} ${esc(h.name)}</b><span>${h.freq === "weekly" ? "每周" : "每日"} · 打卡 ${Object.keys(h.done).length} 天</span></div>`).join("");
     }
   }
   return `<div class="empty">暂无记录</div>`;

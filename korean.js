@@ -11,7 +11,9 @@ function defaultKoreanState() {
     learnedSounds: [],      // 已学发音（字符）
     learnedWords: [],       // 已学单词（ko）
     quiz: { best: {}, last: null },
-    dialogueScene: null
+    dialogueScene: null,
+    vtest: { history: [] },
+    book: { learned: [], favs: [] }
   };
 }
 function krState() { return state.korean && state.korean.cur !== undefined ? state.korean : (state.korean = defaultKoreanState()); }
@@ -301,7 +303,10 @@ const KR_TABS = [
   { id: "grammar", label: "语法", icon: "📐" },
   { id: "quiz", label: "练习", icon: "✍️" },
   { id: "dialogue", label: "对话", icon: "💬" },
-  { id: "culture", label: "文化", icon: "🏯" }
+  { id: "culture", label: "文化", icon: "🏯" },
+  { id: "vtest", label: "词汇量测试", icon: "📊" },
+  { id: "book", label: "单词书", icon: "📖" },
+  { id: "game", label: "单词游戏", icon: "🎮" }
 ];
 
 function renderKoreanPage() {
@@ -332,6 +337,9 @@ function renderKrContent(content, view) {
   else if (view === "quiz") renderKrQuiz(content);
   else if (view === "dialogue") renderKrDialogue(content);
   else if (view === "culture") renderKrCulture(content);
+  else if (view === "vtest") renderKrVTest(content);
+  else if (view === "book") renderKrBook(content);
+  else if (view === "game") renderKrGame(content);
 }
 
 /* ---------- 四十音 ---------- */
@@ -651,6 +659,202 @@ function krCompareCanvas(canvas, ch) {
     if (ca && cb) inter++;
   }
   return uni ? inter / uni : 0;
+}
+
+/* ---------- 词汇量测试 ---------- */
+function renderKrVTest(content) {
+  const ks = krState();
+  ks.vtest = ks.vtest || { history: [] };
+  content.innerHTML = `
+    <div class="kr-note">选择题形式估算词汇量，难度可选 TOPIK I（初级） / TOPIK II（中高级）。测完给出估算词汇量与水平标签。</div>
+    <div class="kr-filters" id="kr-diff"></div>
+    <div id="kr-vtest-box"></div>`;
+  const diffEl = content.querySelector("#kr-diff");
+  const box = content.querySelector("#kr-vtest-box");
+  let diff = "I";
+  const drawDiff = () => {
+    diffEl.innerHTML = [["I", "TOPIK I（初级）"], ["II", "TOPIK II（中高级）"]]
+      .map(d => `<button class="kr-chip ${d[0] === diff ? "active" : ""}" data-d="${d[0]}">${d[1]}</button>`).join("");
+    diffEl.querySelectorAll("[data-d]").forEach(b => b.onclick = () => { diff = b.dataset.d; drawDiff(); });
+  };
+  drawDiff();
+  box.innerHTML = `<button class="btn" id="kr-start">开始测词（20 题）</button>
+    ${ks.vtest.history.length ? `<div class="kr-note">最近一次：${ks.vtest.history[0].est} 词 · ${ks.vtest.history[0].label}（${ks.vtest.history[0].date}）</div>` : ""}`;
+  box.querySelector("#kr-start").onclick = () => startVTest(box, diff);
+}
+function startVTest(box, diff) {
+  const ks = krState();
+  const pool = KR_WORDS.filter(w => diff === "I" ? w.level <= 2 : w.level >= 3);
+  const qs = shuffle(pool).slice(0, Math.min(20, pool.length));
+  let idx = 0, score = 0;
+  function render() {
+    if (idx >= qs.length) {
+      const ratio = score / qs.length;
+      const nominal = diff === "I" ? 2000 : 6000;
+      const est = Math.max(qs.length, Math.round(nominal * ratio));
+      const label = est >= 6000 ? "母语级 🏆" : est >= 3000 ? "高级 🌟" : est >= 1000 ? "中级 💪" : "初级 🌱";
+      ks.vtest.history.unshift({ est, label, diff, date: lm_today ? lm_today() : new Date().toISOString().slice(0, 10) });
+      ks.vtest.history = ks.vtest.history.slice(0, 5);
+      save();
+      box.innerHTML = `<div class="kr-test-result">
+        <div class="kr-quiz-score">约 ${est} 词</div>
+        <div class="kr-level-tag">${label}</div>
+        <div class="kr-quiz-sub">正确 ${score} / ${qs.length} · ${diff === "I" ? "TOPIK I 区间" : "TOPIK II 区间"}</div>
+        <button class="btn" data-again>再测一次</button></div>`;
+      box.querySelector("[data-again]").onclick = () => { idx = 0; score = 0; renderKrVTest(document.getElementById("kr-content")); };
+      return;
+    }
+    const q = qs[idx];
+    const opts = shuffle(KR_WORDS.filter(x => x.ko !== q.ko).map(x => x.ko)).slice(0, 3);
+    opts.push(q.ko); shuffle(opts);
+    box.innerHTML = `
+      <div class="kr-quiz-prog">第 ${idx + 1} / ${qs.length} 题 · 正确 ${score}</div>
+      <div class="kr-quiz-q">「${esc(q.cn)}」的韩语是？ <button class="kr-mini" data-aud>🔊</button></div>
+      <div class="kr-quiz-opts" id="kr-opts"></div>`;
+    box.querySelector("[data-aud]").onclick = () => speakKO(q.ko);
+    const optEl = box.querySelector("#kr-opts");
+    optEl.innerHTML = opts.map(o => `<button class="kr-opt">${esc(o)}</button>`).join("");
+    optEl.querySelectorAll(".kr-opt").forEach(b => b.onclick = () => {
+      const correct = b.textContent.trim() === q.ko;
+      if (correct) { score++; b.classList.add("ok"); }
+      else { b.classList.add("bad"); optEl.querySelectorAll(".kr-opt").forEach(x => { if (x.textContent.trim() === q.ko) x.classList.add("ok"); }); }
+      optEl.querySelectorAll(".kr-opt").forEach(x => x.disabled = true);
+      setTimeout(() => { idx++; render(); }, 650);
+    });
+  }
+  render();
+}
+
+/* ---------- 单词书 ---------- */
+function renderKrBook(content) {
+  const ks = krState();
+  ks.book = ks.book || { learned: [], favs: [] };
+  const words = KR_WORDS;
+  const unitSize = 20;
+  const units = Math.ceil(words.length / unitSize);
+  content.innerHTML = `
+    <div class="kr-note">入门词库按单元分组（每单元 20 词），卡片可听音、收藏到生词本、标记已学。底部显示学习进度。</div>
+    <div class="kr-filters" id="kr-units"></div>
+    <div id="kr-book-box"></div>
+    <div class="kr-book-fav" id="kr-fav"><b>⭐ 生词本（${ks.book.favs.length}）</b><div id="kr-fav-list"></div></div>`;
+  const unitEl = content.querySelector("#kr-units");
+  const box = content.querySelector("#kr-book-box");
+  let curUnit = 0;
+  const drawUnits = () => {
+    unitEl.innerHTML = Array.from({ length: units }, (_, i) =>
+      `<button class="kr-chip ${i === curUnit ? "active" : ""}" data-u="${i}">第 ${i + 1} 单元</button>`).join("");
+    unitEl.querySelectorAll("[data-u]").forEach(b => b.onclick = () => { curUnit = +b.dataset.u; drawUnits(); drawBook(); });
+  };
+  const drawBook = () => {
+    const slice = words.slice(curUnit * unitSize, curUnit * unitSize + unitSize);
+    box.innerHTML = slice.map(w => {
+      const learned = ks.book.learned.includes(w.ko);
+      const fav = ks.book.favs.includes(w.ko);
+      return `<div class="kr-card-book ${learned ? "done" : ""}">
+        <div class="kr-cb-head"><b>${esc(w.ko)}</b><button class="kr-mini" data-say="${esc(w.ko)}">🔊</button></div>
+        <div class="kr-roman">${esc(w.roman || "")}</div>
+        <div class="kr-cb-cn">${esc(w.cn)} <span class="kr-lv">L${w.level}</span></div>
+        <div class="kr-cb-acts">
+          <button class="kr-mini ${fav ? "on" : ""}" data-fav="${esc(w.ko)}">${fav ? "⭐已藏" : "☆收藏"}</button>
+          <button class="kr-mini ${learned ? "on" : ""}" data-learn="${esc(w.ko)}">${learned ? "✓已学" : "标记已学"}</button>
+        </div></div>`;
+    }).join("");
+    box.querySelectorAll("[data-say]").forEach(b => b.onclick = () => speakKO(b.dataset.say));
+    box.querySelectorAll("[data-fav]").forEach(b => b.onclick = () => {
+      const ko = b.dataset.fav; const i = ks.book.favs.indexOf(ko);
+      if (i >= 0) ks.book.favs.splice(i, 1); else ks.book.favs.push(ko);
+      save(); drawBook(); drawFav();
+    });
+    box.querySelectorAll("[data-learn]").forEach(b => b.onclick = () => {
+      const ko = b.dataset.learn; const i = ks.book.learned.indexOf(ko);
+      if (i >= 0) ks.book.learned.splice(i, 1); else ks.book.learned.push(ko);
+      save(); drawBook(); drawProg();
+    });
+  };
+  const drawFav = () => {
+    const list = content.querySelector("#kr-fav-list");
+    if (!ks.book.favs.length) { list.innerHTML = `<div class="empty">还没有收藏的生词</div>`; return; }
+    list.innerHTML = ks.book.favs.map(ko => {
+      const w = words.find(x => x.ko === ko);
+      return `<span class="kr-chip on" data-say="${esc(ko)}">${esc(ko)}${w ? " · " + esc(w.cn) : ""} 🔊</span>`;
+    }).join("");
+    list.querySelectorAll("[data-say]").forEach(b => b.onclick = () => speakKO(b.dataset.say));
+  };
+  const progEl = document.createElement("div");
+  const drawProg = () => {
+    const p = Math.round(ks.book.learned.length / words.length * 100);
+    content.querySelector("#kr-fav").insertAdjacentElement("afterend", progEl);
+    progEl.className = "kr-book-prog";
+    progEl.innerHTML = `学习进度：已学 ${ks.book.learned.length} / ${words.length}（${p}%）`;
+  };
+  drawUnits(); drawBook(); drawFav(); drawProg();
+}
+
+/* ---------- 单词小游戏 ---------- */
+function renderKrGame(content) {
+  const ks = krState();
+  content.innerHTML = `
+    <div class="kr-note">两种模式每轮 10 题，答完显示得分与用时。</div>
+    <div class="kr-filters" id="kr-gmodes"></div>
+    <div id="kr-game-box"></div>`;
+  const modeEl = content.querySelector("#kr-gmodes");
+  const box = content.querySelector("#kr-game-box");
+  modeEl.innerHTML = [["spell", "拼写挑战（听音拼词）"], ["match", "词义配对（韩连中）"]]
+    .map(m => `<button class="kr-chip" data-m="${m[0]}">${m[1]}</button>`).join("");
+  modeEl.querySelectorAll("[data-m]").forEach(b => b.onclick = () => {
+    modeEl.querySelectorAll(".kr-chip").forEach(x => x.classList.toggle("active", x === b));
+    startGame(box, b.dataset.m);
+  });
+}
+function startGame(box, mode) {
+  const qs = shuffle(KR_WORDS).slice(0, 10);
+  let idx = 0, score = 0; const t0 = Date.now();
+  function render() {
+    if (idx >= qs.length) {
+      const sec = ((Date.now() - t0) / 1000).toFixed(1);
+      box.innerHTML = `<div class="kr-test-result">
+        <div class="kr-quiz-score">${score} / ${qs.length}</div>
+        <div class="kr-quiz-sub">用时 ${sec}s ${score >= 8 ? "🎉 厉害" : score >= 6 ? "💪 不错" : "📖 多练练"}</div>
+        <button class="btn" data-again>再来一局</button></div>`;
+      box.querySelector("[data-again]").onclick = () => renderKrGame(document.getElementById("kr-content"));
+      return;
+    }
+    const q = qs[idx];
+    if (mode === "spell") {
+      box.innerHTML = `
+        <div class="kr-quiz-prog">第 ${idx + 1} / ${qs.length} 题 · 得分 ${score}</div>
+        <div class="kr-quiz-q">听发音，写出韩语单词 <button class="kr-mini" data-aud>🔊 播放</button></div>
+        <div class="kr-roman">提示：${esc(q.cn)}</div>
+        <input class="kr-game-input" id="kr-ans" placeholder="输入韩语拼写" autocomplete="off" />
+        <button class="btn" id="kr-sub">提交</button>`;
+      box.querySelector("[data-aud]").onclick = () => speakKO(q.ko);
+      const inp = box.querySelector("#kr-ans"); inp.focus();
+      const sub = () => {
+        const ok = inp.value.trim().replace(/\s/g, "") === q.ko;
+        if (ok) { score++; krToast("正确 ✅"); } else krToast("正确答案：" + q.ko);
+        idx++; render();
+      };
+      box.querySelector("#kr-sub").onclick = sub;
+      inp.onkeydown = e => { if (e.key === "Enter") sub(); };
+    } else {
+      const opts = shuffle(KR_WORDS.filter(x => x.ko !== q.ko).map(x => x.cn)).slice(0, 3);
+      opts.push(q.cn); shuffle(opts);
+      box.innerHTML = `
+        <div class="kr-quiz-prog">第 ${idx + 1} / ${qs.length} 题 · 得分 ${score}</div>
+        <div class="kr-quiz-q">「${esc(q.ko)}」的意思是？ <button class="kr-mini" data-aud>🔊</button></div>
+        <div class="kr-quiz-opts" id="kr-opts"></div>`;
+      box.querySelector("[data-aud]").onclick = () => speakKO(q.ko);
+      const optEl = box.querySelector("#kr-opts");
+      optEl.innerHTML = opts.map(o => `<button class="kr-opt">${esc(o)}</button>`).join("");
+      optEl.querySelectorAll(".kr-opt").forEach(b => b.onclick = () => {
+        const correct = b.textContent.trim() === q.cn;
+        if (correct) { score++; b.classList.add("ok"); } else { b.classList.add("bad"); optEl.querySelectorAll(".kr-opt").forEach(x => { if (x.textContent.trim() === q.cn) x.classList.add("ok"); }); }
+        optEl.querySelectorAll(".kr-opt").forEach(x => x.disabled = true);
+        setTimeout(() => { idx++; render(); }, 650);
+      });
+    }
+  }
+  render();
 }
 
 /* ---------- 小工具 ---------- */
