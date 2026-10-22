@@ -339,6 +339,34 @@ button{font-family:var(--font);cursor:pointer;}
 .mp-rec:active{transform:scale(.96);}
 .mp-body{padding:16px;}
 
+/* ---------- 可做事项（自动分类计划表） ---------- */
+.todo-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+.todo-col{
+  background:#fff;border:1px solid #f0e8ee;border-radius:16px;padding:13px 13px 15px;
+  box-shadow:0 2px 10px rgba(236,72,153,.05);display:flex;flex-direction:column;gap:9px;
+}
+.todo-col-head{display:flex;align-items:center;gap:7px;}
+.todo-col-icon{font-size:18px;}
+.todo-col-name{font-size:14px;font-weight:800;color:var(--ink);flex:1;}
+.todo-list{margin-top:2px;}
+.todo-item{
+  display:flex;align-items:flex-start;gap:9px;
+  background:#fffaf9;border:1px solid #f0e4e8;border-radius:12px;padding:9px 28px 9px 11px;position:relative;cursor:pointer;
+}
+.todo-item input[type=checkbox]{width:18px;height:18px;margin-top:1px;flex:none;accent-color:var(--accent);cursor:pointer;}
+.todo-item .todo-text{flex:1;font-size:13px;line-height:1.4;color:var(--ink);word-break:break-word;}
+.todo-item.done .todo-text{text-decoration:line-through;color:var(--ink-soft);}
+.todo-item .del{position:absolute;top:6px;right:7px;border:none;background:transparent;color:var(--ink-soft);font-size:15px;line-height:1;cursor:pointer;}
+.todo-item .del:hover{color:var(--accent-deep);}
+.tab-item{position:relative;}
+.tab-badge{
+  position:absolute;top:5px;right:6px;background:var(--accent);color:#fff;font-size:10px;font-weight:700;
+  min-width:16px;height:16px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;
+}
+@media (min-width:900px){
+  .todo-grid{grid-template-columns:repeat(4,1fr);}
+}
+
 /* 模块内日期条（类似首页本周打卡） */
 .ds-wrap{margin:0 -14px 14px -14px;padding:10px 14px;background:var(--card);border-bottom:1px solid var(--line);}
 .ds-bar{display:flex;gap:8px;justify-content:space-between;}

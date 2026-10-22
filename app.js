@@ -219,6 +219,7 @@ function defaultState() {
     secondBrain: [],
     items: defaultItems(),
     korean: defaultKoreanState(),
+    todoLists: { read: [], movie: [], drama: [], custom: [] },
     coins: 0,
     planner: { today: [], week: [], goals: [], rewardDate: null },
     accounting: { records: [] },
@@ -946,6 +947,92 @@ function renderItemsPage() {
   renderItems(main.querySelector("#items-body"));
 }
 
+/* ---------- 可做事项（自动分类计划表） ---------- */
+const TODO_CATS = [
+  { id: "read", icon: "📚", name: "阅读" },
+  { id: "movie", icon: "🎬", name: "电影" },
+  { id: "drama", icon: "📺", name: "韩剧" },
+  { id: "custom", icon: "➕", name: "可添加" }
+];
+function renderTodoPage() {
+  const main = document.getElementById("app-main");
+  main.innerHTML = `
+    <div class="mp-head">
+      <button class="mp-back" id="todo-back">‹ 首页</button>
+      <span class="mp-title">🗒️ 可做事项</span>
+      <span></span>
+    </div>
+    <div class="mp-body">
+      <div class="todo-grid" id="todo-grid">
+        ${TODO_CATS.map(c => todoColHTML(c)).join("")}
+      </div>
+    </div>`;
+  main.querySelector("#todo-back").onclick = () => switchTab("home");
+  bindTodoPage(main);
+}
+function todoColHTML(c) {
+  const items = state.todoLists[c.id] || [];
+  const total = items.length;
+  const done = items.filter(i => i.done).length;
+  const pct = total ? Math.round(done / total * 100) : 0;
+  return `<div class="todo-col" data-cat="${c.id}">
+    <div class="todo-col-head">
+      <span class="todo-col-icon">${c.icon}</span>
+      <span class="todo-col-name">${c.name}</span>
+      <span class="chip">${done}/${total}</span>
+    </div>
+    <div class="pbar"><i style="width:${pct}%"></i></div>
+    <div class="form-grid" style="margin-top:6px">
+      <input placeholder="添加「${c.name}」项目" data-add="${c.id}" />
+      <button class="btn full" data-addbtn="${c.id}">+ 添加</button>
+    </div>
+    <div class="list todo-list" data-list="${c.id}">
+      ${items.length ? items.map(i => todoItemHTML(c.id, i)).join("") : `<div class="empty">还没有项目</div>`}
+    </div>
+  </div>`;
+}
+function todoItemHTML(catId, i) {
+  return `<label class="todo-item ${i.done ? "done" : ""}">
+    <input type="checkbox" data-check="${catId}|${i.id}" ${i.done ? "checked" : ""} />
+    <span class="todo-text">${esc(i.text)}</span>
+    <button class="del" data-del="${catId}|${i.id}" type="button">×</button>
+  </label>`;
+}
+function bindTodoPage(main) {
+  main.querySelectorAll("[data-addbtn]").forEach(b => b.onclick = () => {
+    const inp = main.querySelector(`[data-add="${b.dataset.addbtn}"]`);
+    addTodoItem(b.dataset.addbtn, inp.value);
+  });
+  main.querySelectorAll("[data-add]").forEach(inp => inp.onkeydown = e => {
+    if (e.key === "Enter") addTodoItem(inp.dataset.add, inp.value);
+  });
+  main.querySelectorAll("[data-check]").forEach(cb => cb.onchange = () => {
+    const [cat, iid] = cb.dataset.check.split("|");
+    toggleTodoItem(cat, iid);
+  });
+  main.querySelectorAll("[data-del]").forEach(b => b.onclick = e => {
+    e.preventDefault();
+    const [cat, iid] = b.dataset.del.split("|");
+    delTodoItem(cat, iid);
+  });
+}
+function addTodoItem(cat, text) {
+  text = (text || "").trim();
+  if (!text) return toast("写点内容吧");
+  if (!state.todoLists[cat]) state.todoLists[cat] = [];
+  state.todoLists[cat].push({ id: uid(), text, done: false });
+  save(); renderTodoPage(); renderSidebar();
+}
+function toggleTodoItem(cat, iid) {
+  const it = (state.todoLists[cat] || []).find(x => x.id === iid);
+  if (it) { it.done = !it.done; save(); renderTodoPage(); renderSidebar(); }
+}
+function delTodoItem(cat, iid) {
+  if (!state.todoLists[cat]) return;
+  state.todoLists[cat] = state.todoLists[cat].filter(x => x.id !== iid);
+  save(); renderTodoPage(); renderSidebar();
+}
+
 /* ---------- 第二大脑 ---------- */
 function renderSecondBrainPage() {
   const main = document.getElementById("app-main");
@@ -1099,6 +1186,7 @@ function switchTab(tab) {
   currentTab = tab;
   document.querySelectorAll(".tab-item").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
   if (tab === "home") renderHome();
+  else if (tab === "todo") renderTodoPage();
   else if (tab === "modules") renderModules();
   else if (tab === "brain") renderSecondBrainPage();
   else if (tab === "korean") renderKoreanPage();
@@ -1108,6 +1196,7 @@ function switchTab(tab) {
 /* ---------- 左侧边栏（可拖拽自由排序） ---------- */
 const SIDE_TABS = [
   { id: "home", icon: "🏠", label: "首页" },
+  { id: "todo", icon: "🗒️", label: "可做事项" },
   { id: "modules", icon: "📦", label: "模块" },
   { id: "brain", icon: "🧠", label: "第二大脑" },
   { id: "korean", icon: "🇰🇷", label: "韩语" },
@@ -1131,13 +1220,18 @@ function getSideOrder() {
 function setSideOrder(order) {
   try { localStorage.setItem(SIDE_ORDER_KEY, JSON.stringify(order)); } catch (e) {}
 }
+function todoUnchecked() {
+  const lists = state.todoLists || {};
+  return Object.values(lists).reduce((s, arr) => s + (arr || []).filter(i => !i.done).length, 0);
+}
 function renderSidebar() {
   const sb = document.getElementById("app-sidebar");
   if (!sb) return;
   const order = getSideOrder();
   sb.innerHTML = `<div class="sb-brand">V</div><div class="sb-tabs">` + order.map(id => {
     const t = SIDE_TABS.find(x => x.id === id);
-    return `<button class="tab-item" data-tab="${id}"><span class="tab-icon">${t.icon}</span><span class="tab-label">${t.label}</span></button>`;
+    const badge = id === "todo" ? todoUnchecked() : 0;
+    return `<button class="tab-item" data-tab="${id}"><span class="tab-icon">${t.icon}</span><span class="tab-label">${t.label}</span>${badge ? `<span class="tab-badge">${badge}</span>` : ""}</button>`;
   }).join("") + `</div><div class="sb-footer">Vivian</div>`;
   sb.querySelectorAll(".tab-item").forEach(b => b.onclick = () => switchTab(b.dataset.tab));
   sb.querySelectorAll(".tab-item").forEach(t => t.classList.toggle("active", t.dataset.tab === currentTab));
