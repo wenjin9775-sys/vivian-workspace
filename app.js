@@ -353,7 +353,8 @@ const MODULES = [
   { id: "gratitude", title: "感恩日记", icon: "🙏", render: renderGratitude },
   { id: "applications", title: "文书申请", icon: "📄", render: renderApplications },
   { id: "visa", title: "签证", icon: "🛂", render: renderVisa },
-  { id: "skincare", title: "每日护肤", icon: "🧴", render: renderSkincare }
+  { id: "skincare", title: "每日护肤", icon: "🧴", render: renderSkincare },
+  { id: "viz", title: "数据看板", icon: "📊", render: renderViz }
 ];
 
 /* ---------- 倒计时计算工具 ---------- */
@@ -707,6 +708,10 @@ function moduleProgress(id) {
       const used = all.filter(i => i.used).length;
       return total ? { pct: Math.round(used / total * 100), text: `已用 ${used}/${total}` } : { pct: 0, text: "未添加" };
     }
+    case "viz": {
+      const n = (state.life.weight.length) + (state.expense.length) + (state.mood.logs.length) + (state.habit.habits.reduce((s, h) => s + Object.keys(h.done || {}).length, 0)) + (state.reading.books.length);
+      return { pct: Math.min(100, n), text: n ? `已汇集 ${n} 条` : "等待数据" };
+    }
   }
   return { pct: 0, text: "" };
 }
@@ -856,6 +861,18 @@ function moduleRecordsHTML(id) {
     case "habit": {
       if (!state.habit.habits.length) return `<div class="empty">还没有习惯</div>`;
       return state.habit.habits.map(h => `<div class="rec-item"><b>${esc(h.emoji || "⭐")} ${esc(h.name)}</b><span>${h.freq === "weekly" ? "每周" : "每日"} · 打卡 ${Object.keys(h.done).length} 天</span></div>`).join("");
+    }
+    case "viz": {
+      const habitN = state.habit.habits.reduce((s, h) => s + Object.keys(h.done || {}).length, 0);
+      const n = (state.life.weight.length) + (state.expense.length) + (state.mood.logs.length) + habitN + (state.reading.books.length);
+      if (!n) return `<div class="empty">还没有可展示的数据</div>`;
+      return [
+        `⚖️ 体重记录 ${state.life.weight.length} 条`,
+        `💸 花销 ${state.expense.length} 笔`,
+        `😊 心情 ${state.mood.logs.length} 篇`,
+        `🔥 习惯打卡 ${habitN} 次`,
+        `📚 读书 ${state.reading.books.length} 本`
+      ].map(t => `<div class="rec-item"><b>${t}</b></div>`).join("");
     }
   }
   return `<div class="empty">暂无记录</div>`;
@@ -1031,6 +1048,91 @@ function delTodoItem(cat, iid) {
   if (!state.todoLists[cat]) return;
   state.todoLists[cat] = state.todoLists[cat].filter(x => x.id !== iid);
   save(); renderTodoPage(); renderSidebar();
+}
+
+/* ---------- 可视化数据看板 ---------- */
+let vizCharts = [];
+function vizYmd(d){ const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,"0"); const day=String(d.getDate()).padStart(2,"0"); return y+"-"+m+"-"+day; }
+function vizChartOpts(legend){
+  return {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ display:!!legend, labels:{ boxWidth:12, font:{size:11} } } },
+    scales:{
+      x:{ ticks:{ font:{size:10}, maxRotation:0, autoSkip:true, maxTicksLimit:8 }, grid:{ display:false } },
+      y:{ ticks:{ font:{size:10} }, grid:{ color:"rgba(236,72,153,.07)" } }
+    }
+  };
+}
+function renderViz(c) {
+  if (vizCharts.length) { vizCharts.forEach(ch => { try { ch.destroy(); } catch(e){} }); vizCharts = []; }
+  const wt = [...(state.life.weight||[])].sort((a,b)=>a.date.localeCompare(b.date));
+  const mk = monthKey();
+  const exp = (state.expense||[]).filter(e => e.date && e.date.startsWith(mk));
+  const byCat = {};
+  exp.forEach(e => { const k = e.category || "其他"; byCat[k] = (byCat[k]||0) + (Number(e.amount)||0); });
+  const mood = [...(state.mood.logs||[])].sort((a,b)=>a.date.localeCompare(b.date)).slice(-14);
+  const habits = state.habit.habits || [];
+  const reading = state.reading || { goal: 12, books: [] };
+  const doneBooks = reading.books.filter(b => b.status === "done");
+
+  c.innerHTML = `
+    <div class="lm-card">
+      <div class="lm-card-title">⚖️ 体重趋势</div>
+      <div class="lm-chart-box"><canvas id="viz-weight"></canvas></div>
+    </div>
+    <div class="lm-card">
+      <div class="lm-card-title">💸 本月花销分类</div>
+      <div class="lm-chart-box"><canvas id="viz-expense"></canvas></div>
+    </div>
+    <div class="lm-card">
+      <div class="lm-card-title">😊 心情趋势（睡眠 h / 精力 1-10）</div>
+      <div class="lm-chart-box"><canvas id="viz-mood"></canvas></div>
+    </div>
+    <div class="lm-card">
+      <div class="lm-card-title">🔥 习惯打卡热力图（近 12 周）</div>
+      <div id="viz-heat" class="viz-heat"></div>
+      <div class="viz-legend"><span>少</span><i class="viz-cell"></i><i class="viz-cell lv1"></i><i class="viz-cell lv2"></i><i class="viz-cell lv3"></i><i class="viz-cell lv4"></i><span>多</span></div>
+    </div>
+    <div class="lm-card">
+      <div class="lm-card-title">📚 读书收获</div>
+      <div class="lm-progress"><div class="lm-progress-bar" style="width:${reading.goal?Math.round(doneBooks.length/reading.goal*100):0}%"></div><span>年度目标 ${doneBooks.length}/${reading.goal}</span></div>
+      <div class="lm-list">${reading.books.slice().reverse().map(b=>`<div class="lm-task ${b.status==="done"?"done":""}"><div class="lm-task-main"><div class="lm-task-text">${esc(b.title||"未命名")} <small>${esc(b.author||"")}</small></div><div class="lm-task-meta"><span>${b.status==="done"?"已读 · "+(b.rating||"-")+"分":"在读"}</span></div></div></div>`).join("")||'<div class="empty">还没有书</div>'}</div>
+    </div>`;
+
+  if (window.Chart) {
+    if (wt.length) {
+      vizCharts.push(new Chart(c.querySelector("#viz-weight"), { type:"line", data:{ labels: wt.map(w=>w.date.slice(5)), datasets:[{ label:"体重 kg", data: wt.map(w=>Number(w.weight)), borderColor:"#ec4899", backgroundColor:"rgba(236,72,153,.12)", tension:.3, fill:true, pointRadius:2 }] }, options: vizChartOpts(false) }));
+    } else { c.querySelector("#viz-weight").parentElement.innerHTML = '<div class="empty">还没有体重记录</div>'; }
+
+    if (Object.keys(byCat).length) {
+      const palette = ["#ec4899","#f9a8d4","#be185d","#fbcfe8","#db2777","#f472b6","#9d174d","#fda4d4"];
+      vizCharts.push(new Chart(c.querySelector("#viz-expense"), { type:"doughnut", data:{ labels: Object.keys(byCat), datasets:[{ data: Object.values(byCat), backgroundColor: palette, borderColor:"#fff", borderWidth:2 }] }, options: vizChartOpts(true) }));
+    } else { c.querySelector("#viz-expense").parentElement.innerHTML = '<div class="empty">本月还没有花销</div>'; }
+
+    if (mood.length) {
+      vizCharts.push(new Chart(c.querySelector("#viz-mood"), { type:"line", data:{ labels: mood.map(m=>m.date.slice(5)), datasets:[
+        { label:"睡眠 h", data: mood.map(m=>Number(m.sleep)||null), borderColor:"#ec4899", backgroundColor:"rgba(236,72,153,.1)", tension:.3, spanGaps:true, pointRadius:2 },
+        { label:"精力", data: mood.map(m=>Number(m.energy)||null), borderColor:"#8b5cf6", backgroundColor:"rgba(139,92,246,.1)", tension:.3, spanGaps:true, pointRadius:2 }
+      ] }, options: vizChartOpts(true) }));
+    } else { c.querySelector("#viz-mood").parentElement.innerHTML = '<div class="empty">还没有心情记录</div>'; }
+  } else {
+    c.querySelectorAll(".lm-chart-box").forEach(b => b.innerHTML = '<div class="empty">图表库未加载（请联网后重试）</div>');
+  }
+
+  drawVizHeat(c.querySelector("#viz-heat"), habits);
+}
+function drawVizHeat(el, habits) {
+  if (!el) return;
+  const days = [];
+  const t = new Date();
+  for (let i = 83; i >= 0; i--) { const d = new Date(t); d.setDate(t.getDate() - i); days.push(vizYmd(d)); }
+  const map = {};
+  (habits||[]).forEach(h => { const done = h.done || {}; Object.keys(done).forEach(dt => { map[dt] = (map[dt]||0) + 1; }); });
+  el.innerHTML = days.map(d => {
+    const n = map[d] || 0;
+    const lv = n >= 4 ? 4 : n >= 3 ? 3 : n >= 2 ? 2 : n >= 1 ? 1 : 0;
+    return `<span class="viz-cell ${lv? "lv"+lv : ""}" title="${d}：${n} 项习惯"></span>`;
+  }).join("");
 }
 
 /* ---------- 第二大脑 ---------- */
