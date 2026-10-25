@@ -124,13 +124,11 @@ switchTab = function (tab, sub) {
   if (typeof homeTickTimer !== "undefined" && homeTickTimer) { clearInterval(homeTickTimer); homeTickTimer = null; }
   currentRoute = { tab, sub: sub || null };
   /* 自愈：打开合并版新页面前确保 state 键已初始化（避免与 app.js 异步 loadState 竞态） */
-  if (["board", "topik", "skincareDaily", "checkin"].includes(tab)) { try { ensureMerged(); } catch (e) {} }
+  if (["board", "topik", "checkin"].includes(tab)) { try { ensureMerged(); } catch (e) {} }
   if (tab === "board") { renderTodoBoardPage(); }
   else if (tab === "todo") { __origSwitchTab(tab); }
   else if (tab === "topik") { renderTopikPage(sub || "plan"); }
   else if (tab === "checkin") { renderCheckinPage(); }
-  else if (tab === "skincareDaily") { renderSkincareDailyPage(); }
-  else if (tab === "skincare") { renderModulePage("skincare", () => switchTab("home"), "‹ 首页"); }
   else { __origSwitchTab(tab); }
   markSidebarActive();
 };
@@ -149,8 +147,6 @@ const SB_GROUPS = [
     { nav: "todo", icon: "🗒️", label: "可做事项", badge: "lists" },
     { nav: "board", icon: "✅", label: "影书评", badge: "board" },
     { nav: "checkin", icon: "📅", label: "每日打卡" },
-    { nav: "skincareDaily", icon: "🧴", label: "每日护肤" },
-    { nav: "skincare", icon: "🪞", label: "个人护理" },
     { nav: "brain", icon: "🧠", label: "第二大脑" },
     { nav: "modules", icon: "📦", label: "模块" },
     { nav: "items", icon: "🛍️", label: "待使用" },
@@ -219,9 +215,6 @@ renderHome = function () {
   const topikTotal = weekTasks.length + 83;
   const topikPct = topikTotal ? topikDone / topikTotal : 0;
   const today = todayStr();
-  const sdRoutines = (state.skincareDaily && state.skincareDaily.routines) || [];
-  const sdEntry = (state.skincareDaily && state.skincareDaily.log && state.skincareDaily.log[today]) || {};
-  const skinPct = sdRoutines.length ? ((sdEntry.done || []).length / sdRoutines.length) : 0;
   const days7 = last7Days(today);
   const maxH = Math.max(1, ...days7.map(d => Number((tp.dayHours || {})[d]) || 0));
   const bars = days7.map(d => {
@@ -234,7 +227,6 @@ renderHome = function () {
     <div class="mg-rings card">
       <div class="mg-ring-item" data-goto="board">${ringSVG(todoPct, "#ec4899", 64)}<span>影书评</span></div>
       <div class="mg-ring-item" data-goto="topik">${ringSVG(topikPct, "#f59e0b", 64)}<span>TOPIK 备考</span></div>
-      <div class="mg-ring-item" data-goto="skincareDaily">${ringSVG(skinPct, "#db2777", 64)}<span>每日护肤</span></div>
     </div>
     <div class="section-title">📚 近7天学习时长</div>
     <div class="card"><div class="mg-bars">${bars}</div><div class="muted" style="margin-top:8px">在 TOPIK 每日打卡里记录每天学习时长</div></div>`;
@@ -537,7 +529,7 @@ function renderCheckinPage() {
       </div>
       <div class="mg-cal-week"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
       <div class="mg-cal-grid">${cells.join("")}</div>
-      <div class="muted" style="margin-top:10px">点日期打勾/取消打卡；今日护肤与 TOPIK 打卡在各自模块里记录</div>
+      <div class="muted" style="margin-top:10px">点日期打勾/取消打卡；TOPIK 打卡在各自模块里记录</div>
     </div>
     <div class="mg-quick card">
       <button class="btn" data-quick="todo">去待办事项</button>
