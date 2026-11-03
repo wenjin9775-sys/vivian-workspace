@@ -10,7 +10,13 @@
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icon.svg" />
   <link rel="stylesheet" href="styles.css?v=24" />
-  <link rel="stylesheet" href="merge.css?v=1" />
+  <!-- MERGE: 合并版视觉（奶油底 + 黑色分组侧边栏 + 粉彩卡片） -->
+  <link rel="stylesheet" href="merge.css?v=2" />
+  <link rel="stylesheet" href="daily.css?v=1" />
+  <link rel="stylesheet" href="dashboard.css?v=2" />
+  <link rel="stylesheet" href="jot.css?v=1" />
+  <link rel="stylesheet" href="food.css?v=1" />
+  <link rel="stylesheet" href="planning.css?v=1" />
 </head>
 <body>
   <div id="app">
@@ -73,10 +79,23 @@
     });
   })();
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="vendor/chart.umd.min.js"></script>
   <script src="korean.js?v=2"></script>
-  <script src="app.js?v=27"></script>
-  <script src="life.js?v=1"></script>
-  <script src="merge.js?v=1"></script>
+  <script src="app.js?v=29"></script>
+  <script src="life.js?v=4"></script>
+  <!-- MERGE: 合并版新增功能（分组侧边栏 / 待办看板 / TOPIK 计划 / 护肤打卡 / 每日打卡） -->
+  <script src="merge.js?v=7"></script>
+  <script src="record-model.js?v=3"></script>
+  <script src="local-sync.js?v=4"></script>
+  <script src="daily.js?v=3"></script>
+  <script src="dashboard-model.js?v=1"></script>
+  <script src="dashboard.js?v=5"></script>
+  <script src="jot-model.js?v=1"></script>
+  <script src="jot.js?v=2"></script>
+  <script src="food-model.js?v=1"></script>
+  <script src="food.js?v=1"></script>
+  <script src="planning-model.js?v=1"></script>
+  <script src="planning.js?v=1"></script>
+  <script>init();</script>
 </body>
 </html>

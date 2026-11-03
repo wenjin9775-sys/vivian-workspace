@@ -1,11 +1,14 @@
 {
   "name": "vivian-workspace",
   "version": "1.0.0",
-  "description": "Vivian 的个人工作台后端（Node），含账号登录、数据/图片云端同步，支持 MongoDB 或本地文件存储",
-  "main": "server.js",
+  "description": "Vivian 个人工作台本地浏览器版，记录持久保存、备份与每日追加",
+  "main": "local-server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node local-server.js",
+    "dev": "node local-server.js",
+    "test": "node --test tests/local-server.test.js tests/dashboard-model.test.js tests/jot-model.test.js tests/phone-server.test.js tests/food-ai.test.js tests/planning-model.test.js",
+    "record": "node scripts/record-entry.js",
+    "start:legacy": "node server.js"
   },
   "dependencies": {
     "mongodb": "^6.8.0"

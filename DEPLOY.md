@@ -125,3 +125,33 @@ const API = "https://vivian.works";
 
 > 更省事的一条路：iPhone 上直接用 Safari 打开网页端 →「添加到主屏幕」，就是一个独立 App 图标，
 > 完全不需要微信、不需要审核、不需要域名白名单，只要后端是个公网 https 地址即可。个人自用最推荐这个。
+
+---
+
+## 六、合并版（2026-10-25）补充说明
+
+本次合并在原版基础上叠加了新版功能，部署方式不变，仍按上面一～五节走。
+
+### 新增文件
+| 文件 | 作用 |
+|------|------|
+| `merge.js` | 分组侧边栏、待办四栏看板 + 书评影评编辑器、TOPIK 备考计划、护肤打卡、每日打卡、首页挂件 |
+| `merge.css` | 奶油底 + 粉彩卡片 + 黑色分组侧边栏样式 |
+| `seed-vivian2.json` | 首次启动种子：待办（书籍《幸福地理学》+ 电影 10 部）、TOPIK 倒计时、护肤 7 项 |
+| `data/skincare-daily-plan.json` | 81 天护肤逐日计划（2026-10-25 ~ 2027-01-13） |
+| `data/mask-inventory.json` | 面膜库存 49 款 |
+| `data/skincare-inventory.json` | 护肤品库存 130 条 |
+
+### 本地运行
+```bash
+node server.js            # 默认端口 8770
+PORT=8902 node server.js  # 换端口（避免冲突）
+```
+
+### 部署注意事项
+- **Dockerfile 已同步更新**：补上了原 Dockerfile 漏掉的 `life.js` / `korean.js`（否则韩语学习与扩展模块在 Docker 部署下会 404），并加入了 `merge.js` / `merge.css` / `seed-vivian2.json` / `data/`。
+- **Service Worker 缓存版本已升到 `vivian-v13-merged`**：老用户再次打开会自动清掉旧缓存；若仍看到旧界面，手动刷新一次即可。
+- **JS/CSS 带 `?v=` 版本号**：`merge.js?v=1` / `merge.css?v=1`，改动后请同步 bump 版本号，避免被一年期 immutable 缓存挡住。
+- **种子只在首次启动导入**：state 为空（无倒计时、无待办、无第二大脑、无体重/运动/饮食/灵感/感恩/花销记录）时自动导入 `seed-vivian2.json` + 护肤计划与库存；老用户不会被覆盖，只会把旧待办（阅读/电影/韩剧/自定义）迁移进新看板，护肤计划与库存会补进新模块。
+- **存储不变**：仍走 `server.js` 的 MongoDB / 本地文件逻辑；新模块数据存在同一份 state 里，随账号同步。
+- **PWA / 小程序**：`miniprogram/` 未动；小程序端看不到合并版新模块（小程序是独立实现），新模块只在网页/PWA 端可用。

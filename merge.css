@@ -171,18 +171,3 @@
 .mg-cal-cell.today{ outline:2px solid #ec4899; }
 .mg-cal-cell b{ color:#16a34a; font-size:12px; }
 .mg-quick{ display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
-
-/* ---------- 每日护肤：routine 卡片打卡 ---------- */
-.sk-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-.sk-card{
-  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
-  padding:22px 12px; min-height:96px; border-radius:20px; position:relative;
-  background:linear-gradient(135deg,#fdf2f8,#fce7f3); border:2px solid transparent;
-  cursor:pointer; color:#9d174d; font-size:15px;
-}
-.sk-card .sk-ico{ font-size:30px; line-height:1; }
-.sk-card .sk-label{ font-weight:600; }
-.sk-card .sk-check{ position:absolute; top:8px; right:10px; font-size:16px; font-weight:800; opacity:.35; }
-.sk-card.on{ background:linear-gradient(135deg,#ec4899,#db2777); color:#fff; border-color:#db2777; }
-.sk-card.on .sk-check{ opacity:1; }
-@media (max-width:899px){ .sk-grid{ grid-template-columns:1fr 1fr; } }

@@ -1,0 +1,80 @@
+.daily-page { color:#29272b; max-width:100%; }
+.daily-page * { box-sizing:border-box; }
+.daily-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:5px 0 22px; }
+.daily-eyebrow { font-size:10px; letter-spacing:2.5px; color:#897c82; font-weight:700; }
+.daily-heading h2 { font-size:clamp(21px,2.5vw,29px); line-height:1.5; margin:8px 0 5px; letter-spacing:-.5px; }
+.daily-heading p { margin:0; color:#857a7e; font-size:13px; line-height:1.8; }
+.daily-heading-icon { color:#db8a9f; background:#f7e1e6; width:68px; height:68px; border-radius:24px; display:grid; place-items:center; font-size:40px; flex:none; transform:rotate(8deg); }
+.daily-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:22px; }
+.daily-stat { padding:17px 16px; border:1px solid #ffffff88; border-radius:18px; background:#f7e4ec; min-width:0; }
+.daily-stat:nth-child(2) { background:#f5edcf; }
+.daily-stat:nth-child(3) { background:#e1eddf; }
+.daily-stat:nth-child(4) { background:#e3e8f6; }
+.daily-stat-label { display:flex; align-items:center; justify-content:space-between; gap:7px; color:#71666a; font-size:11px; }
+.daily-stat-label span:last-child { font-size:18px; }
+.daily-stat strong { display:block; margin:12px 0 7px; font-size:26px; font-weight:800; overflow-wrap:anywhere; }
+.daily-stat small { font-size:12px; font-weight:500; }
+.daily-stat-sub { color:#8a7f81; font-size:10px; }
+.daily-layout { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); align-items:start; gap:18px; }
+.daily-panel { padding:22px; border:1px solid #eee5dc; border-radius:22px; background:#fffdfa; min-width:0; box-shadow:0 4px 16px #442e2110; }
+.daily-section-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:9px; }
+.daily-panel h3 { margin:0; font-size:16px; }
+.daily-soft-tag { border-radius:20px; padding:5px 9px; background:#f6eaf0; color:#a16f84; font-size:10px; white-space:nowrap; }
+.daily-help { font-size:11px; color:#91858b; line-height:1.8; margin:6px 0 12px; }
+.daily-page label { display:flex; flex-direction:column; gap:7px; font-size:11px; color:#73676e; font-weight:600; }
+.daily-page input,.daily-page textarea,.daily-page select { width:100%; min-width:0; border:1px solid #e9e2dc; background:#fff; color:#353039; font-family:inherit; font-size:13px; padding:10px 11px; border-radius:10px; outline:none; }
+.daily-page input:focus,.daily-page textarea:focus,.daily-page select:focus { border-color:#bd6a8f; box-shadow:0 0 0 3px #f6e5ef; }
+.daily-page input::placeholder,.daily-page textarea::placeholder { color:#afa2a8; font-size:11px; font-weight:400; }
+.daily-page textarea { resize:vertical; line-height:1.7; min-height:68px; }
+.daily-page fieldset { border:0; border-top:1px solid #f0e8e0; margin:23px 0 0; padding:15px 0 0; min-width:0; }
+.daily-page legend { font-size:13px; font-weight:700; color:#443a40; padding:0 9px 0 0; }
+.daily-page legend span { margin-right:5px; }
+.daily-weight-fields,.daily-expense-fields { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; margin-bottom:11px; }
+.daily-meals { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.daily-primary { display:flex; justify-content:space-between; align-items:center; width:100%; padding:13px 16px; border:0; border-radius:12px; background:#262327; color:#fff; font-family:inherit; font-size:13px; font-weight:600; cursor:pointer; margin-top:20px; }
+.daily-primary:hover { background:#44333f; }
+.daily-primary span { color:#eeb0cb; font-size:20px; }
+.daily-page button:disabled { opacity:.5; cursor:wait; }
+.daily-page button:focus-visible { outline:3px solid #cc7da3; outline-offset:3px; }
+.daily-status { font-size:11px; line-height:1.8; color:#6c8978; padding-top:11px; overflow-wrap:anywhere; }
+.daily-status.is-error { color:#a94750; }
+.daily-filters { display:flex; align-items:flex-end; gap:9px; margin:17px 0 13px; }
+.daily-filters label { flex:1; min-width:0; }
+.daily-small-button { border:1px solid #ded4cd; background:#fffdf9; padding:10px 12px; border-radius:10px; color:#706068; font-size:11px; font-family:inherit; white-space:nowrap; cursor:pointer; }
+.daily-small-button:hover { background:#f8eee9; }
+.daily-filter-types { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0; }
+.daily-filter-types button { border:0; border-radius:18px; background:#f4efea; color:#8f7c87; font-family:inherit; font-size:11px; padding:7px 11px; cursor:pointer; }
+.daily-filter-types button[aria-pressed="true"] { background:#352d34; color:#fff; }
+.daily-page .daily-all-dates { display:flex; flex-direction:row; align-items:center; flex-wrap:wrap; gap:6px; font-size:10px; font-weight:400; margin:10px 0 16px; }
+.daily-all-dates input { width:14px; height:14px; accent-color:#bc7294; padding:0; }
+.daily-all-dates span { color:#a899a1; }
+.daily-empty { padding:35px 8px; text-align:center; }
+.daily-empty>span { display:grid; width:62px; height:62px; margin:0 auto 16px; place-items:center; border-radius:50%; background:#f6ede5; color:#b7a18a; font-size:35px; }
+.daily-empty h4 { font-size:14px; font-weight:600; margin:0 0 10px; color:#796c75; }
+.daily-empty p { font-size:12px; line-height:1.9; color:#a1919a; margin:0; }
+.daily-record { padding:14px 12px; border:1px solid #eee8e3; border-left:3px solid #e0acc3; border-radius:12px; background:#fff; margin-bottom:10px; }
+.daily-record-diet { border-left-color:#d8c889; }
+.daily-record-expense { border-left-color:#a6c2a4; }
+.daily-record-event { border-left-color:#b0bbdf; }
+.daily-record-top { display:flex; align-items:center; gap:7px; font-size:10px; color:#96858f; }
+.daily-record-top>span { font-weight:700; color:#6b5965; }
+.daily-record-top time { margin-left:auto; }
+.daily-delete { border:0; color:#ac8d9a; background:transparent; font-family:inherit; font-size:10px; padding:4px 0 4px 5px; cursor:pointer; }
+.daily-delete:hover { color:#ba395b; }
+.daily-record-content { font-size:13px; line-height:1.8; white-space:pre-wrap; overflow-wrap:anywhere; margin:9px 0 7px; color:#4d434a; }
+.daily-record-detail { font-size:10px; color:#8d7d87; margin-bottom:8px; }
+.daily-source { font-size:10px; color:#ab9ca5; overflow-wrap:anywhere; }
+.daily-original { margin-top:7px; font-size:10px; color:#9a8994; }
+.daily-original summary { cursor:pointer; }
+.daily-original p { white-space:pre-wrap; overflow-wrap:anywhere; margin:8px 0 0; line-height:1.8; }
+.daily-backup { margin-top:19px; display:flex; align-items:center; justify-content:space-between; gap:20px; }
+.daily-backup h3 { font-size:13px; }
+.daily-backup p { margin:6px 0 0; line-height:1.8; font-size:10px; color:#9b8c94; }
+.daily-backup-buttons { display:flex; flex-wrap:wrap; gap:8px; flex:none; }
+@media(max-width:1080px) { .daily-layout { grid-template-columns:1fr; }.daily-history-panel { min-height:250px; } }
+@media(max-width:600px) { .daily-stats { grid-template-columns:1fr 1fr; gap:9px; }.daily-heading-icon { display:none; }.daily-heading h2 { font-size:20px; }.daily-eyebrow { font-size:8px; letter-spacing:2px; }.daily-heading p { font-size:11px; }.daily-panel { padding:16px 13px; border-radius:17px; }.daily-stat { padding:13px 12px; }.daily-stat strong { font-size:24px; }.daily-meals { grid-template-columns:1fr; }.daily-backup { align-items:stretch; flex-direction:column; gap:12px; }.daily-backup-buttons { display:grid; grid-template-columns:1fr 1fr; }.daily-filters { flex-wrap:wrap; }.daily-filters label { flex-basis:100%; }.daily-filters .daily-small-button { margin-left:auto; }.daily-section-head h3 { font-size:14px; }.daily-record-top { flex-wrap:wrap; }.daily-record-top time { margin-left:0; }.daily-delete { margin-left:auto; } }
+.daily-home-entry { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px; margin-bottom:18px; border:1px solid #edd8d7; border-radius:18px; background:#fff9f6; }
+.daily-home-entry b { font-size:16px; }
+.daily-home-entry p { color:#8a7478; font-size:12px; margin-top:6px; }
+.daily-home-entry button { flex-shrink:0; }
+@media(max-width:600px) { .daily-home-entry { align-items:stretch; flex-direction:column; } }

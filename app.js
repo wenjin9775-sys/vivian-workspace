@@ -21,14 +21,17 @@ async function api(path, opts) {
   return j;
 }
 async function apiSaveState() {
+  if (window.localSync) return localSync.schedule();
   if (!authToken) return;
   try { await api("/api/state", { method: "PUT", body: JSON.stringify({ state }) }); } catch (e) { console.warn("状态同步失败", e); }
 }
 async function apiUploadImage(id, data) {
+  if (window.localSync) return localSync.uploadImage(id, data);
   if (!authToken) return;
   try { await api("/api/image", { method: "POST", body: JSON.stringify({ id, data }) }); } catch (e) { console.warn("图片上传失败", e); }
 }
 async function apiGetImage(id) {
+  if (window.localSync) return localSync.getImage(id);
   if (!authToken) return null;
   try {
     const r = await fetch("/api/image/" + encodeURIComponent(id), { headers: { "Authorization": "Bearer " + authToken } });
@@ -39,7 +42,7 @@ async function apiGetImage(id) {
 async function getImg(id) {
   const local = await idb.get(id);
   if (local) return local;
-  if (authToken) { const d = await apiGetImage(id); if (d) { await idb.put(id, d); return d; } }
+  if (authToken || window.localSync) { const d = await apiGetImage(id); if (d) { await idb.put(id, d); return d; } }
   return null;
 }
 const ACCENTS = ["#10b981", "#3b82f6", "#f59e0b", "#ec4899", "#8b5cf6", "#06b6d4", "#ef4444", "#14b8a6"];
@@ -53,12 +56,10 @@ function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 function todayStr() {
-  const d = new Date(); const off = d.getTimezoneOffset();
-  return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 function daysAgoStr(n) {
-  const d = new Date(Date.now() - n * 86400000); const off = d.getTimezoneOffset();
-  return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10);
+  return dateAddStr(todayStr(), -n);
 }
 function dateAddStr(d, n) {
   const date = new Date(d + "T00:00:00"); date.setDate(date.getDate() + n); const off = date.getTimezoneOffset();
@@ -201,9 +202,62 @@ function defaultItems() {
     { id: uid(), name: "零食", items: [] }
   ];
 }
-function defaultState() {
+function defaultTodoBoard() {
+  const mk = (id, kind, title) => ({ id, kind, title, sortOrder: 0, items: [] });
+  const cols = [
+    mk("col-books", "book", "书籍"),
+    mk("col-movies", "movie", "电影"),
+    mk("col-korean", "korean", "韩语"),
+    mk("col-custom", "custom", "自定义")
+  ];
+  cols.forEach((c, i) => (c.sortOrder = i));
+  return { columns: cols };
+}
+function defaultTopikPlan() {
+  const weeks = [];
+  const phases = ["打地基", "打地基", "打地基", "专项突破", "专项突破", "专项突破", "专项突破", "模考冲刺", "模考冲刺", "模考冲刺", "保温收尾", "保温收尾"];
+  const tasksByPhase = {
+    "打地基": ["延世韩国语 2 册：精读 2 课", "TOPIK 初级词汇 100 个", "基础语法 10 条整理进笔记", "听力精听 3 篇（跟读）"],
+    "专项突破": ["阅读真题 1 套（限时）", "听力真题 1 套（限时）", "写作小作文 1 篇", "错题整理：语法 + 词汇"],
+    "模考冲刺": ["完整模考 1 套（全真计时）", "模考复盘：听力/阅读/写作分项", "高频词汇 200 个过一遍", "写作模板默写 1 次"],
+    "保温收尾": ["错题本全过一遍", "模考 1 套保持手感", "报名信息 + 准考证核对", "早睡 + 证件文具打包"]
+  };
+  let d = new Date("2026-10-19T00:00:00");
+  const fmt = (x) => `${x.getMonth() + 1}-${String(x.getDate()).padStart(2, "0")}`;
+  for (let w = 1; w <= 12; w++) {
+    const s = new Date(d), e = new Date(d); e.setDate(e.getDate() + 6);
+    const phase = phases[w - 1];
+    weeks.push({
+      id: "w" + w, label: "第 " + w + " 周", range: fmt(s) + " ~ " + fmt(e), phase,
+      tasks: tasksByPhase[phase].map((t, i) => ({ id: "w" + w + "-t" + (i + 1), text: t, done: false }))
+    });
+    d.setDate(d.getDate() + 7);
+  }
   return {
-    settings: { accent: "#ec4899", bgColor: "#fff5f9", bgImage: null, showSub: "记录生活 · 韩语学习 · 申请进度", userName: "Vivian" },
+    examDate: "2027-01-10", examLabel: "TOPIK 考试（第 110 届）", startDate: "2026-10-19",
+    weeks, dayHours: {}, dayNotes: {}, daysDone: {},
+    vocab: [], mocks: [],
+    signup: [
+      { id: "su1", text: "报名期 2026-12-08 ~ 12-14：完成网上报名并缴费", done: false },
+      { id: "su2", text: "确认报名信息与考场（韩国考场）", done: false },
+      { id: "su3", text: "打印准考证", done: false },
+      { id: "su4", text: "准备证件（护照/身份证）与文具", done: false },
+      { id: "su5", text: "2027-01-10 参加考试", done: false },
+      { id: "su6", text: "2027-02-11 查成绩", done: false }
+    ]
+  };
+}
+function defaultSkincareDaily() {
+  return {
+    plan: [], checks: {}, reactions: {}, masks: [], items: [],
+    quickSkin: ["洁面", "爽肤水", "精华", "眼霜", "乳液", "面霜", "防晒"].map(n => ({ name: n, done: false }))
+  };
+}
+/* MERGE: 合并版新增 state 键（老用户缺键时由 loadState/ensureMerged 补默认值，不报错） */
+function defaultState() {
+
+  return {
+    settings: { accent: "#ec4899", bgColor: "#faf6ee", bgImage: null, showSub: "记录生活 · 韩语学习 · 申请进度", userName: "Vivian" },
     layout: { col1: ["countdown", "grammar", "vocabpractice", "fitness", "weight", "diet", "expense"], col2: ["inspiration", "gratitude", "skincare", "applications", "visa"] },
     expense: [],
     vocab: [],
@@ -220,6 +274,10 @@ function defaultState() {
     items: defaultItems(),
     korean: defaultKoreanState(),
     todoLists: { read: [], movie: [], drama: [], custom: [] },
+    /* MERGE */ todoBoard: defaultTodoBoard(),
+    /* MERGE */ topikPlan: defaultTopikPlan(),
+    /* MERGE */ skincareDaily: defaultSkincareDaily(),
+    /* MERGE */ checkins: {},
     coins: 0,
     planner: { today: [], week: [], goals: [], rewardDate: null },
     accounting: { records: [] },
@@ -308,7 +366,7 @@ function streakDays() {
       state.life.weight.some(w => w.date === d) ||
       state.life.diet.some(g => g.date === d && (g.items || []).length) ||
       state.skincare.cats.some(c => c.doneDates.includes(d)) ||
-      state.vocabPractice.lessons.some(l => l.done);
+      Boolean(state.checkins?.[d]) || Boolean(state.topikPlan?.daysDone?.[d]);
     if (active) streak++; else if (d !== todayStr()) break;
   }
   return streak;
@@ -317,13 +375,15 @@ function renderHeader() {
   const h = document.getElementById("app-header");
   if (!h) return;
   const t = todayStr();
-  const month = new Date().getMonth() + 1;
-  const date = new Date().getDate();
+  const month = Number(t.slice(5,7));
+  const date = Number(t.slice(8,10));
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone:"Asia/Shanghai",hour:"2-digit",hourCycle:"h23" }).format(new Date()));
+  const greeting = hour < 6 ? "夜深了" : hour < 12 ? "早安" : hour < 18 ? "下午好" : "晚上好";
   const wd = weekDay(t);
   const streak = streakDays();
   h.innerHTML = `
     <div class="header-top">
-      <div class="header-greet">早安，${esc(state.settings.userName || "Vivian")}</div>
+      <div class="header-greet">${greeting}，${esc(state.settings.userName || "Vivian")}</div>
       <div class="header-streak">🔥 连续打卡 ${streak} 天</div>
     </div>
     <div class="header-main">
@@ -332,8 +392,8 @@ function renderHeader() {
         <div class="week">星期${wd}</div>
       </div>
       <div class="header-weather">
-        <span class="w-icon">🌤️</span>
-        <span class="w-temp">26°C</span>
+        <span class="w-icon">🌷</span>
+        <span class="w-temp">记录每一天</span>
       </div>
     </div>`;
 }
@@ -387,7 +447,8 @@ function renderHome() {
   const fitToday = state.life.fitness.find(g => g.date === today);
   const fitCount = fitToday ? fitToday.tasks.length : 0;
   const dietToday = state.life.diet.find(d => d.date === today);
-  const kcal = dietToday ? dietToday.items.reduce((s, i) => s + (Number(i.kcal) || 0), 0) : 0;
+  const knownKcal = dietToday?.items.filter(i => i.kcal != null && i.kcal !== "") || [];
+  const kcal = knownKcal.length ? knownKcal.reduce((s, i) => s + Number(i.kcal), 0) : "--";
   const wtArr = [...state.life.weight].sort((a, b) => a.date.localeCompare(b.date));
   const latestW = wtArr.length ? Number(wtArr[wtArr.length - 1].weight) : null;
   const prevW = wtArr.length >= 2 ? Number(wtArr[wtArr.length - 2].weight) : null;
@@ -435,7 +496,7 @@ function renderHome() {
   main.innerHTML = cdHeroHTML + `
     <div class="stat-grid">
       <div class="stat-card" data-module="fitness"><div class="emoji">🏃</div><div class="value">${fitCount}</div><div class="label">今日运动</div></div>
-      <div class="stat-card" data-module="diet"><div class="emoji">🍱</div><div class="value">${kcal}</div><div class="label">今日摄入 kcal</div></div>
+      <div class="stat-card" data-module="diet"><div class="emoji">🍱</div><div class="value">${kcal}</div><div class="label">已填热量 kcal${dietToday && knownKcal.length < dietToday.items.length ? "（未填全）" : ""}</div></div>
       <div class="stat-card" data-module="weight"><div class="emoji">⚖️</div><div class="value">${latestW != null ? latestW : "--"}<small>${latestW != null ? "kg" : ""}</small></div><div class="label">最新体重</div></div>
       <div class="stat-card" data-module="weight"><div class="emoji">📉</div><div class="value">${wtDelta != null ? (wtDelta > 0 ? "+" : "") + wtDelta.toFixed(1) : "--"}<small>kg</small></div><div class="label">体重变化</div></div>
       <div class="stat-card" data-module="skincare"><div class="emoji">🔥</div><div class="value">${weekCheck.size}</div><div class="label">本周打卡</div></div>
@@ -497,7 +558,7 @@ function openDaySummary(date) {
     ? fitTasks.map(t => `<div class="day-li ${t.done ? "done" : ""}"><span>${t.done ? "✓" : "○"}</span> ${esc(t.text)}</div>`).join("")
     : `<div class="empty" style="padding:8px 0">没有运动记录</div>`;
   const dietHTML = dietItems.length
-    ? dietItems.map(i => `<div class="day-li"><span>🍱</span> ${esc(i.name)} ${Number(i.kcal) || 0} kcal</div>`).join("")
+    ? dietItems.map(i => `<div class="day-li"><span>🍱</span> ${esc(i.name)} ${esc(VivianFood.calorieText(i))}</div>`).join("")
     : `<div class="empty" style="padding:8px 0">没有饮食记录</div>`;
   const skinHTML = skinCats.length
     ? skinCats.map(c => `<div class="day-li"><span>${SKIN_EMOJI[c.name] || "🧴"}</span> ${esc(c.name)}</div>`).join("")
@@ -780,7 +841,7 @@ function moduleRecordsHTML(id) {
     }
     case "diet": {
       const rows = [];
-      state.life.diet.forEach(g => (g.items || []).forEach(i => rows.push({ v: `${i.name} ${Number(i.kcal) || 0}kcal`, d: g.date })));
+      state.life.diet.forEach(g => (g.items || []).forEach(i => rows.push({ v: `${i.name} ${VivianFood.calorieText(i)}`, d: g.date })));
       if (!rows.length) return `<div class="empty">还没有饮食记录</div>`;
       return rows.map(r => `<div class="rec-item"><b>${esc(r.v)}</b><span>${esc(r.d)}</span></div>`).join("");
     }
@@ -1227,16 +1288,16 @@ function renderMe() {
     <div class="me-card">
       <div class="me-avatar">${esc((state.settings.userName || "V").slice(0, 1))}</div>
       <div class="me-name">${esc(state.settings.userName || "Vivian")}</div>
-      <div class="me-status">${authToken ? "已登录 · 数据云端同步中" : "未登录 · 数据仅存在本机"}</div>
+      <div class="me-status">${window.localSync ? "个人本地版 · 记录保存在这台电脑" : (authToken ? "已登录 · 数据云端同步中" : "未登录 · 数据仅存在本机")}</div>
     </div>
     <div class="me-menu">
-      <button class="me-item" id="me-auth"><span class="icon">${authToken ? "🚪" : "🔑"}</span><span class="text">${authToken ? "退出登录" : "登录 / 注册"}</span><span class="arrow">›</span></button>
+      <button class="me-item" id="me-auth"><span class="icon">${window.localSync ? "📒" : "🔑"}</span><span class="text">${window.localSync ? "生活记录与备份" : (authToken ? "退出登录" : "登录 / 注册")}</span><span class="arrow">›</span></button>
       <button class="me-item" id="me-theme"><span class="icon">🎨</span><span class="text">主题色</span><span class="arrow">›</span></button>
       <button class="me-item" id="me-name"><span class="icon">✏️</span><span class="text">修改称呼</span><span class="arrow">›</span></button>
       <button class="me-item" id="me-clear"><span class="icon">🗑</span><span class="text">清空所有数据</span><span class="arrow">›</span></button>
     </div>
   `;
-  main.querySelector("#me-auth").onclick = onAuthClick;
+  main.querySelector("#me-auth").onclick = window.localSync ? () => switchTab("daily") : onAuthClick;
   main.querySelector("#me-theme").onclick = openThemePicker;
   main.querySelector("#me-name").onclick = () => {
     const n = prompt("怎么称呼你？", state.settings.userName || "Vivian");
@@ -1913,7 +1974,7 @@ function renderWeight(c) {
   }
   c.querySelector("#wt-add").onclick = () => {
     const v = parseFloat(c.querySelector("#wt-val").value);
-    if (isNaN(v)) return toast("请输入体重");
+    if (!Number.isFinite(v) || v <= 0) return toast("请输入大于零的体重");
     const ex = state.life.weight.find(x => x.date === selected);
     if (ex) ex.weight = v; else state.life.weight.push({ id: uid(), weight: v, date: selected });
     save(); c.querySelector("#wt-val").value = ""; renderHeader(); drawAll();
@@ -1927,7 +1988,7 @@ function renderDiet(c) {
   const dates = last7Days(selected);
   c.innerHTML = `
     <div class="ds-wrap" id="diet-ds"></div>
-    <div class="muted" style="font-weight:700;margin-bottom:4px">🍱 饮食记录（自动算卡路里）</div>
+    <div class="muted" style="font-weight:700;margin-bottom:4px">🍱 饮食记录（热量可选填写）</div>
     <div class="form-grid">
       <input placeholder="食物名" id="diet-name" />
       <input type="number" placeholder="卡路里 kcal" id="diet-kcal" />
@@ -1945,19 +2006,21 @@ function renderDiet(c) {
   }
   function drawDiet() {
     const day = getDietDay(selected);
-    const total = day ? day.items.reduce((s, i) => s + (Number(i.kcal) || 0), 0) : 0;
+    const known = day?.items.filter(i => i.kcal != null && i.kcal !== "") || [];
+    const total = known.length ? known.reduce((s, i) => s + Number(i.kcal), 0) : "--";
     if (!day || !day.items.length) { dietList.innerHTML = `<div class="empty">${selected === todayStr() ? "今天还没有饮食记录" : "这一天还没有饮食记录"}</div>`; return; }
     dietList.innerHTML = `
       <div class="item" style="border-left:3px solid var(--accent);margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <b style="font-size:13px">📅 ${esc(selected)}</b>
-          <span class="chip">${total} kcal</span>
+          <span class="chip">已知热量 ${total} kcal</span>
           ${day.img ? `<span class="thumb" data-img="${day.img}" style="width:40px;height:40px"></span>` : ""}
         </div>
       </div>
+      ${VivianFood.estimateTotal(day.items)?`<p class="food-help">${esc(VivianFood.estimateTotal(day.items))}</p>`:""}
       ${day.items.map(i => `<div class="item" style="padding:6px 10px;display:flex;align-items:center;gap:8px">
         <button class="del" data-delitem="${day.id}|${i.id}">×</button>
-        <span style="flex:1;font-size:13px">${esc(i.name)} <b>${Number(i.kcal) || 0} kcal</b></span>
+        <span style="flex:1;font-size:13px">${esc(i.name)} <b>${esc(VivianFood.calorieText(i))}</b></span>
         ${i.img ? `<span class="thumb" data-img="${i.img}"></span>` : ""}</div>`).join("")}`;
     hydrateImages(dietList);
     dietList.querySelectorAll("[data-delitem]").forEach(b => b.onclick = () => {
@@ -1970,7 +2033,7 @@ function renderDiet(c) {
     const name = c.querySelector("#diet-name").value.trim();
     const kcal = parseFloat(c.querySelector("#diet-kcal").value);
     if (!name) return toast("请输入食物名");
-    ensureDietDay(selected).items.push({ id: uid(), name, kcal: isNaN(kcal) ? 0 : kcal, img: null });
+    ensureDietDay(selected).items.push({ id: uid(), name, kcal: isNaN(kcal) ? null : kcal, img: null });
     save(); c.querySelector("#diet-name").value = ""; c.querySelector("#diet-kcal").value = ""; drawAll(); renderHeader();
   };
   c.querySelector("#diet-pic").onclick = () => {
@@ -1983,7 +2046,7 @@ function renderDiet(c) {
 function sparklineBig(arr) {
   if (!arr.length) return `<div class="muted">记录体重看趋势</div>`;
   const w = 280, h = 60, vals = arr.map(x => x.v), max = Math.max(...vals), min = Math.min(...vals), span = max - min || 1;
-  const pts = arr.map((x, i) => `${(i / (arr.length - 1) * w).toFixed(1)},${(h - (x.v - min) / span * (h - 8) - 4).toFixed(1)}`).join(" ");
+  const pts = arr.map((x, i) => `${(arr.length === 1 ? w / 2 : i / (arr.length - 1) * w).toFixed(1)},${(h - (x.v - min) / span * (h - 8) - 4).toFixed(1)}`).join(" ");
   return `<svg width="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="max-width:${w}px">
     <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>
     <text x="4" y="12" font-size="10" fill="var(--ink-soft)">${max}</text>
@@ -2318,7 +2381,7 @@ function openAuth() {
         const s = await api("/api/state");
         if (s && s.state) state = Object.assign(defaultState(), s.state, { settings: Object.assign(defaultState().settings, s.state.settings || {}) });
       } catch (_) {}
-      ensureVocabPractice(); ensureSkincare(); ensureLayout(); migrate();
+      ensureVocabPractice(); ensureSkincare(); ensureLayout(); migrate(); if (typeof ensureMerged === "function") ensureMerged();
       save(); applyTheme(); renderHeader(); switchTab(currentTab);
       toast(isReg ? "注册成功，已登录 🎉" : "登录成功 🎉");
       root.innerHTML = "";
@@ -2329,14 +2392,15 @@ function openAuth() {
 }
 function registerSW() {
   if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js").catch(() => {}); });
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
   }
 }
 
 async function init() {
   try {
+    if (window.localSync) await localSync.initialize();
     try { await idb.open(); } catch (e) { console.warn("IndexedDB 不可用，图片功能将受限", e); }
-    if (authToken) {
+    if (authToken && !window.localSync) {
       try {
         const s = await api("/api/state");
         if (s && s.state) state = Object.assign(defaultState(), s.state, { settings: Object.assign(defaultState().settings, s.state.settings || {}) });
@@ -2352,6 +2416,7 @@ async function init() {
     ensureSkincare();
     ensureLayout();
     migrate();
+    /* MERGE */ if (typeof ensureMerged === "function") await ensureMerged();
     save();
     applyTheme();
     if (!criticalElementsReady()) {
@@ -2367,4 +2432,4 @@ async function init() {
     if (window.onerror) window.onerror(String(err), "app.js", 0, 0, err);
   }
 }
-init();
+// All extensions load before init() is called by index.html.

@@ -1,5 +1,7 @@
 node_modules/
 server-data/
+local-data/
+test-results/
 .DS_Store
 *.log
 cloudflared.exe

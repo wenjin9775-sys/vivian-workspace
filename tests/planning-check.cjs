@@ -1,0 +1,37 @@
+'use strict';
+const assert=require('node:assert/strict');
+require('./browser-harness.cjs')(async({call,evaluate,until,screenshot,errors})=>{
+  const form=async values=>{await evaluate(`(()=>{const f=document.querySelector('#ov-modal-form');for(const [k,v] of Object.entries(${JSON.stringify(values)}))f.elements[k].value=v;f.requestSubmit();})()`);await until('!overviewUI.busy && !document.getElementById("modal-root").childElementCount');};
+  const idle=()=>until('!overviewUI.busy && !document.getElementById("modal-root").childElementCount');
+  const today=await evaluate('todayStr()');
+  await evaluate('document.querySelector("[data-nav=organize]").click()');
+  assert.equal(await evaluate('document.querySelectorAll(".pl-tabs button").length'),5);
+  await evaluate('document.querySelector("[data-pl=add-task]").click()');
+  await form({text:'测试：听力练习',date:today,deadline:today,estimateHours:'4',progress:'25',startTime:'09:00',endTime:'10:00',tags:'韩语,练习',prio:'3'});
+  await evaluate('document.querySelector("[data-pl=capacity]").click()');await form({hours:'2'});
+  assert.equal(await evaluate('PL.report(state,todayStr()).days[0].over'),60);
+  await evaluate('switchTab("organize","board");document.querySelector("[data-plan-focus]").click()');await until('state.dashboard.activeFocus && !overviewUI.busy');
+  assert.equal(await evaluate('state.planner.today[0].status'),'doing');
+  await evaluate('state.dashboard.activeFocus.start=Date.now()-120000;save();localSync.flush()');
+  await evaluate('const statusMenu=document.querySelector("[data-task-status]");statusMenu.value="done";statusMenu.dispatchEvent(new Event("change"))');await until('state.planner.today[0].done && !overviewUI.busy');
+  assert.equal(await evaluate('state.dashboard.activeFocus'),null);assert.equal(await evaluate('state.dashboard.focusSessions.length'),1);
+  await evaluate('planningUI.dragId=state.planner.today[0].id;document.querySelector("[data-drop-status=todo]").dispatchEvent(new Event("drop",{bubbles:true,cancelable:true}))');await until('!state.planner.today[0].done && !overviewUI.busy');
+  assert.equal(await evaluate('state.planner.today[0].progress'),0);
+  await evaluate('const search=document.querySelector("#pl-search");search.value="不存在的词";search.dispatchEvent(new Event("input"))');assert.equal(await evaluate('document.querySelectorAll("[data-task-drag]").length'),0);
+  await evaluate('planningUI.query="";switchTab("organize","rhythm");document.querySelector("[data-pl=add-routine]").click()');await form({title:'测试：散步时段',startTime:'09:30',endTime:'10:30',repeat:'daily'});
+  assert.equal(await evaluate('PL.conflicts(state,todayStr()).length'),1);
+  await evaluate('document.querySelector("[data-pl=add-habit]").click()');await form({name:'测试：阅读习惯',emoji:'📖',freq:'daily'});
+  await evaluate('document.querySelector(`[data-habit-date="${todayStr()}"]`).click()');await until('state.habit.habits[0].done[todayStr()] && !overviewUI.busy');
+  await evaluate('switchTab("home")');assert.equal(await evaluate('document.querySelector("[data-toggle-habit]").getAttribute("aria-pressed")'),'true');
+  await evaluate('switchTab("organize","ideas");document.querySelector("[data-pl=add-idea]").click()');await form({title:'测试：做一本词汇手册',body:'保留原始想法内容',tags:'韩语,手册',stage:'draft'});
+  await evaluate('document.querySelector("[data-convert-idea]").click()');assert.equal(await evaluate('state.planner.today.length'),1);
+  await form({date:'',estimateHours:'',progress:'0'});assert.equal(await evaluate('state.planner.today.length'),2);
+  await evaluate('document.querySelector("[data-convert-idea]").click()');await form({text:'测试：整理词汇手册',progress:'20'});assert.equal(await evaluate('state.planner.today.length'),2);assert.equal(await evaluate('state.secondBrain[0].body'),'保留原始想法内容');
+  await evaluate('switchTab("organize","schedule")');assert.ok(await evaluate('document.querySelector("#pl-content").textContent.includes("测试：整理词汇手册")'));
+  await call('Page.reload');await until('document.querySelector("#pl-home-open") && localSync.statusText.includes("已保存")');assert.equal(await evaluate('state.planner.today.length'),2);assert.equal(await evaluate('state.planner.routines.length'),1);
+  await evaluate('switchTab("organize","overview")');await screenshot('planning-overview');
+  await evaluate('switchTab("organize","board")');await screenshot('planning-board');
+  for(const width of [390,768,1024]){await call('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false});for(const tab of ['overview','board','schedule','rhythm','ideas']){await evaluate(`switchTab('organize','${tab}')`);assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'),width+' '+tab+' overflow');}if(width===390){await evaluate('switchTab("organize","rhythm")');await screenshot('planning-mobile');}}
+  await evaluate('planningEditRoutine(state.planner.routines[0].id);window.confirm=()=>true;document.querySelector("#ov-modal-delete").click()');await idle();assert.equal(await evaluate('state.planner.routines.length'),0);
+  assert.deepEqual(errors,[]);console.log('Planning board, timer, drag, capacity, routine, shared habit, idea conversion, persistence and mobile checks passed');
+}).catch(e=>{console.error(e);process.exitCode=1;});

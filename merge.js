@@ -1,79 +1,18 @@
 /* =========================================================================
    MERGE —— 合并版新增功能（原版为体、新版为魂）
    包含：分组黑色侧边栏、待办四栏看板 + 书评影评编辑器、
-   TOPIK 备考计划（5 页签）、护肤打卡（每日护肤 routine 打卡）、
+   TOPIK 备考计划（5 页签）、护肤打卡（81 天逐日计划 + 库存查询）、
    每日打卡页、首页挂件（完成度圆环 + 学习时长柱）。
    本文件只新增/覆盖，不修改 app.js / life.js / korean.js 原有函数。
    ========================================================================= */
 "use strict";
-/* ---------- 合并版自包含默认函数（原在 app.js 内联，现移入本文件，避免污染基础 app.js） ---------- */
-function defaultTodoBoard() {
-  const mk = (id, kind, title) => ({ id, kind, title, sortOrder: 0, items: [] });
-  const cols = [
-    mk("col-books", "book", "书籍"),
-    mk("col-movies", "movie", "电影"),
-    mk("col-korean", "korean", "韩语"),
-    mk("col-custom", "custom", "自定义")
-  ];
-  cols.forEach((c, i) => (c.sortOrder = i));
-  return { columns: cols };
-}
-function defaultTopikPlan() {
-  const weeks = [];
-  const phases = ["打地基", "打地基", "打地基", "专项突破", "专项突破", "专项突破", "专项突破", "模考冲刺", "模考冲刺", "模考冲刺", "保温收尾", "保温收尾"];
-  const tasksByPhase = {
-    "打地基": ["延世韩国语 2 册：精读 2 课", "TOPIK 初级词汇 100 个", "基础语法 10 条整理进笔记", "听力精听 3 篇（跟读）"],
-    "专项突破": ["阅读真题 1 套（限时）", "听力真题 1 套（限时）", "写作小作文 1 篇", "错题整理：语法 + 词汇"],
-    "模考冲刺": ["完整模考 1 套（全真计时）", "模考复盘：听力/阅读/写作分项", "高频词汇 200 个过一遍", "写作模板默写 1 次"],
-    "保温收尾": ["错题本全过一遍", "模考 1 套保持手感", "报名信息 + 准考证核对", "早睡 + 证件文具打包"]
-  };
-  let d = new Date("2026-10-19T00:00:00");
-  const fmt = (x) => `${x.getMonth() + 1}-${String(x.getDate()).padStart(2, "0")}`;
-  for (let w = 1; w <= 12; w++) {
-    const s = new Date(d), e = new Date(d); e.setDate(e.getDate() + 6);
-    const phase = phases[w - 1];
-    weeks.push({
-      id: "w" + w, label: "第 " + w + " 周", range: fmt(s) + " ~ " + fmt(e), phase,
-      tasks: tasksByPhase[phase].map((t, i) => ({ id: "w" + w + "-t" + (i + 1), text: t, done: false }))
-    });
-    d.setDate(d.getDate() + 7);
-  }
-  return {
-    examDate: "2027-01-10", examLabel: "TOPIK 考试（第 110 届）", startDate: "2026-10-19",
-    weeks, dayHours: {}, dayNotes: {}, daysDone: {},
-    vocab: [], mocks: [],
-    signup: [
-      { id: "su1", text: "报名期 2026-12-08 ~ 12-14：完成网上报名并缴费", done: false },
-      { id: "su2", text: "确认报名信息与考场（韩国考场）", done: false },
-      { id: "su3", text: "打印准考证", done: false },
-      { id: "su4", text: "准备证件（护照/身份证）与文具", done: false },
-      { id: "su5", text: "2027-01-10 参加考试", done: false },
-      { id: "su6", text: "2027-02-11 查成绩", done: false }
-    ]
-  };
-}
-function defaultSkincareDaily() {
-  const r = (icon, label) => ({ id: uid(), icon, label });
-  return {
-    routines: [
-      r("🧖", "面膜"),
-      r("💋", "唇膜"),
-      r("👁️", "眼霜"),
-      r("💆", "面部提升"),
-      r("🧼", "面部清洁"),
-      r("🧴", "身体乳"),
-      r("🤲", "手膜")
-    ],
-    log: {}
-  };
-}
 /* ---------- 合并保障：新 state 键默认值 + 种子导入 + 老待办迁移 ---------- */
 function ensureMerged() {
   if (!state.todoBoard || !state.todoBoard.columns) state.todoBoard = defaultTodoBoard();
   if (!state.topikPlan || !state.topikPlan.weeks) state.topikPlan = defaultTopikPlan();
+  if (!state.skincareDaily || !state.skincareDaily.plan) state.skincareDaily = defaultSkincareDaily();
   if (!state.checkins) state.checkins = {};
-  if (!state.skincareDaily || !state.skincareDaily.routines) state.skincareDaily = defaultSkincareDaily();
-  if (!state._seedV2) applySeed();
+  if (!state._seedV2) return applySeed();
 }
 function isFreshState() {
   const hasTodos = Object.values(state.todoLists || {}).some(a => (a || []).length);
@@ -102,13 +41,25 @@ async function applySeed() {
   _seedRunning = true;
   try {
     const get = async (p) => { try { const r = await fetch(p); return r.ok ? await r.json() : null; } catch (e) { return null; } };
-    const seed = await get("./seed-vivian2.json");
-    if (seed && seed.columns && !(state.todoBoard.columns || []).length) {
+    const [seed, plan, masks, items] = await Promise.all([
+      get("./seed-vivian2.json"), get("./data/skincare-daily-plan.json"),
+      get("./data/mask-inventory.json"), get("./data/skincare-inventory.json")
+    ]);
+    const fresh = isFreshState();
+    if (fresh && seed && seed.columns) {
       state.todoBoard.columns = seed.columns;
       if (seed.countdown && !(state.countdowns || []).some(c => c.date === seed.countdown.date)) {
         state.countdowns.push({ id: uid(), title: seed.countdown.label, date: seed.countdown.date, time: "" });
       }
+      if (seed.skin) state.skincareDaily.quickSkin = seed.skin.map(s => ({ name: s.name, done: false }));
+    } else {
+      migrateOldTodos();
     }
+    const sd = state.skincareDaily;
+    if (plan && plan.days && !sd.plan.length) sd.plan = plan.days;
+    if (masks && masks.masks && !sd.masks.length) sd.masks = masks.masks;
+    if (items && items.items && !sd.items.length) sd.items = items.items;
+    if (!seed || !plan || !masks || !items) throw new Error("初始资料尚未加载完整，请重新打开工作台");
     state._seedV2 = true;
     save();
     renderSidebar();
@@ -123,12 +74,16 @@ const __origSwitchTab = switchTab;
 switchTab = function (tab, sub) {
   if (typeof homeTickTimer !== "undefined" && homeTickTimer) { clearInterval(homeTickTimer); homeTickTimer = null; }
   currentRoute = { tab, sub: sub || null };
-  /* 自愈：打开合并版新页面前确保 state 键已初始化（避免与 app.js 异步 loadState 竞态） */
-  if (["board", "topik", "checkin"].includes(tab)) { try { ensureMerged(); } catch (e) {} }
-  if (tab === "board") { renderTodoBoardPage(); }
-  else if (tab === "todo") { __origSwitchTab(tab); }
+  currentTab = tab;
+  if (tab === "organize") { renderPlanningPage(sub); }
+  else if (tab === "food") { renderFoodPage(); }
+  else if (tab === "jot") { renderJotPage(); }
+  else if (tab === "daily") { renderDailyPage(); }
+  else if (tab === "todo") { renderTodoBoardPage(); }
   else if (tab === "topik") { renderTopikPage(sub || "plan"); }
+  else if (tab === "skincareDaily") { renderSkincareDailyPage(); }
   else if (tab === "checkin") { renderCheckinPage(); }
+  else if (tab === "skincare") { renderModulePage("skincare", () => switchTab("home"), "‹ 首页"); }
   else { __origSwitchTab(tab); }
   markSidebarActive();
 };
@@ -142,23 +97,27 @@ function markSidebarActive() {
 
 /* ---------- 分组黑色侧边栏 ---------- */
 const SB_GROUPS = [
-  { title: "核心功能", items: [
-    { nav: "home", icon: "🏠", label: "首页总览" },
-    { nav: "todo", icon: "🗒️", label: "可做事项", badge: "lists" },
-    { nav: "board", icon: "✅", label: "影书评", badge: "board" },
-    { nav: "checkin", icon: "📅", label: "每日打卡" },
-    { nav: "brain", icon: "🧠", label: "第二大脑" },
-    { nav: "modules", icon: "📦", label: "模块" },
-    { nav: "items", icon: "🛍️", label: "待使用" },
-    { nav: "me", icon: "👤", label: "我的" }
+  { title: "我的日常", items: [
+    { nav: "home", icon: "🏠", label: "今日总览" },
+    { nav: "organize", icon: "🗂️", label: "任务与日程" },
+    { nav: "food", icon: "📷", label: "拍照记饮食" },
+    { nav: "jot", icon: "✎", label: "随手记" },
+    { nav: "daily", icon: "📒", label: "生活记录" },
+    { nav: "review", icon: "📈", label: "趋势与复盘" },
+    { nav: "todo", icon: "✅", label: "书影音与待办", badge: true },
+    { nav: "checkin", icon: "📅", label: "打卡日历" },
+    { nav: "skincareDaily", icon: "🌸", label: "护肤打卡" }
   ]},
   { title: "TOPIK 考试", items: [
     { nav: "topik", sub: "plan", icon: "📋", label: "备考周计划" },
     { nav: "topik", sub: "daily", icon: "✅", label: "每日打卡" },
-    { nav: "topik", sub: "vocab", icon: "📖", label: "词汇语法" },
-    { nav: "topik", sub: "mock", icon: "📝", label: "套卷分析" },
-    { nav: "topik", sub: "signup", icon: "🧾", label: "报名清单" },
     { nav: "korean", icon: "🇰🇷", label: "韩语学习" }
+  ]},
+  { title: "我的收藏与工具", items: [
+    { nav: "brain", icon: "🧠", label: "灵感与笔记" },
+    { nav: "items", icon: "🛍️", label: "待使用" },
+    { nav: "modules", icon: "📦", label: "全部工具" },
+    { nav: "me", icon: "👤", label: "设置与备份" }
   ]}
 ];
 function todoUncheckedCount() {
@@ -180,15 +139,15 @@ renderSidebar = function () {
     <div class="sb-group">
       <div class="sb-group-title">${g.title}</div>
       ${g.items.map(it => {
-        const badge = it.badge === "board" ? todoUncheckedCount() : it.badge === "lists" ? (typeof todoUnchecked === "function" ? todoUnchecked() : 0) : 0;
-        return `<button class="sb-item" data-nav="${it.nav}"${it.sub ? ` data-sub="${it.sub}"` : ""}>
+        const badge = it.badge ? todoUncheckedCount() : 0;
+        return `<button class="sb-item" title="${it.label}" aria-label="${it.label}" data-nav="${it.nav}"${it.sub ? ` data-sub="${it.sub}"` : ""}>
           <span class="sb-ico">${it.icon}</span><span class="sb-label">${it.label}</span>
           ${badge ? `<span class="sb-badge">${badge}</span>` : ""}
         </button>`;
       }).join("")}
     </div>`).join("");
   sb.innerHTML = `<div class="sb-brand">V</div>
-    <div class="sb-sync">☁️ 服务端同步中</div>
+    <div class="sb-sync" role="status">${window.localSync ? esc(localSync.statusText) : "保存在浏览器"}</div>
     <div class="sb-groups">${groups}</div>
     <div class="sb-dday" id="sb-dday"><span>TOPIK 考试</span><b>${topikDDay()}</b></div>
     <div class="sb-footer">VIVIAN</div>`;
@@ -206,6 +165,11 @@ const __origRenderHome = renderHome;
 renderHome = function () {
   __origRenderHome();
   const main = document.getElementById("app-main"); if (!main) return;
+  const entry = document.createElement("div");
+  entry.className = "daily-home-entry";
+  entry.innerHTML = '<div><b>今天，也好好记录生活</b><p>体重 · 三餐 · 花销 · 日常小事</p></div><button class="btn" id="open-daily">记一笔 ＋</button>';
+  main.prepend(entry);
+  entry.querySelector("button").onclick = () => switchTab("daily");
   const tp = state.topikPlan || {};
   const cols = (state.todoBoard && state.todoBoard.columns) || [];
   const allItems = cols.flatMap(c => c.items || []);
@@ -215,6 +179,18 @@ renderHome = function () {
   const topikTotal = weekTasks.length + 83;
   const topikPct = topikTotal ? topikDone / topikTotal : 0;
   const today = todayStr();
+  const sd = state.skincareDaily || {};
+  const dayPlan = (sd.plan || []).find(d => d.date === today);
+  let skinPct = 0;
+  if (dayPlan) {
+    const keys = ["am", "pm", "mask", "massager", "ipl", "hands", "feet", "neck"];
+    const applicable = keys.filter(k => dayPlan[k] && dayPlan[k] !== "—");
+    const ck = (sd.checks || {})[today] || {};
+    skinPct = applicable.length ? applicable.filter(k => ck[k]).length / applicable.length : 0;
+  } else {
+    const qs = sd.quickSkin || [];
+    skinPct = qs.length ? qs.filter(s => s.done).length / qs.length : 0;
+  }
   const days7 = last7Days(today);
   const maxH = Math.max(1, ...days7.map(d => Number((tp.dayHours || {})[d]) || 0));
   const bars = days7.map(d => {
@@ -225,8 +201,9 @@ renderHome = function () {
   sec.innerHTML = `
     <div class="section-title">📊 完成度总览</div>
     <div class="mg-rings card">
-      <div class="mg-ring-item" data-goto="board">${ringSVG(todoPct, "#ec4899", 64)}<span>影书评</span></div>
+      <div class="mg-ring-item" data-goto="todo">${ringSVG(todoPct, "#ec4899", 64)}<span>待办事项</span></div>
       <div class="mg-ring-item" data-goto="topik">${ringSVG(topikPct, "#f59e0b", 64)}<span>TOPIK 备考</span></div>
+      <div class="mg-ring-item" data-goto="skincareDaily">${ringSVG(skinPct, "#22c55e", 64)}<span>今日护肤</span></div>
     </div>
     <div class="section-title">📚 近7天学习时长</div>
     <div class="card"><div class="mg-bars">${bars}</div><div class="muted" style="margin-top:8px">在 TOPIK 每日打卡里记录每天学习时长</div></div>`;
@@ -495,6 +472,125 @@ function bindTopikPage(root) {
   });
 }
 
+/* ---------- 护肤打卡：81 天逐日计划打勾 + 当日皮肤反应 + 库存查询 ---------- */
+let skTab = "today", skDate = todayStr();
+const SK_CATS = [["am", "☀️ 早间面部"], ["pm", "🌙 晚间面部"], ["mask", "🎭 面膜"], ["massager", "💆 按摩仪"], ["ipl", "✨ 脱毛"], ["hands", "🤲 手部"], ["feet", "🦶 足部"], ["neck", "🦢 颈部"]];
+function skinStreak() {
+  const sd = state.skincareDaily || {};
+  let n = 0, d = todayStr();
+  const isDone = (date) => {
+    const ck = (sd.checks || {})[date] || {};
+    return Object.values(ck).some(v => v);
+  };
+  while (isDone(d)) { n++; d = dateAddStr(d, -1); }
+  return n;
+}
+function skinDoneRate() {
+  const sd = state.skincareDaily || {};
+  let total = 0, done = 0;
+  Object.keys(sd.checks || {}).forEach(date => {
+    const day = (sd.plan || []).find(x => x.date === date);
+    const keys = day ? SK_CATS.map(c => c[0]).filter(k => day[k] && day[k] !== "—") : Object.keys(sd.checks[date]);
+    keys.forEach(k => { total++; if (sd.checks[date][k]) done++; });
+  });
+  return total ? Math.round(done / total * 100) : 0;
+}
+function renderSkincareDailyPage() {
+  const main = document.getElementById("app-main"); if (!main) return;
+  const sd = state.skincareDaily || {};
+  const day = (sd.plan || []).find(d => d.date === skDate);
+  const ck = (sd.checks || {})[skDate] || {};
+  const reaction = (sd.reactions || {})[skDate] || "";
+  const tabs = [["today", "📅 按天打卡"], ["plan", "🗓️ 81 天计划"], ["inventory", "🔍 库存查询"]];
+  let body = "";
+  if (skTab === "today") {
+    const applicable = day ? SK_CATS.filter(([k]) => day[k] && day[k] !== "—") : [];
+    const doneN = applicable.filter(([k]) => ck[k]).length;
+    body = `<div class="card">
+      <div class="mg-week-head"><b>${skDate}（${day ? esc(day.weekday) : weekDay(skDate)}）</b><span class="muted">${day ? esc(day.phase) : "不在 81 天计划内"}</span></div>
+      <div style="display:flex;gap:8px;margin:10px 0">
+        <button class="btn ghost" id="sk-prev">‹ 前一天</button>
+        <input type="date" id="sk-date" value="${skDate}" style="padding:8px;border:1.5px solid var(--line);border-radius:10px" />
+        <button class="btn ghost" id="sk-next">后一天 ›</button>
+        <button class="btn ghost" id="sk-today">回到今天</button>
+      </div>
+      ${day ? `<div class="mg-checklist">${applicable.map(([k, label]) => `<label class="mg-check-row"><input type="checkbox" data-sk="${k}" ${ck[k] ? "checked" : ""} /><span><b>${label}</b><br /><span class="muted">${esc(day[k])}</span></span></label>`).join("")}</div>
+      <div class="muted" style="margin-top:10px">今日进度：${doneN} / ${applicable.length}</div>
+      ${day.note ? `<div class="muted" style="margin-top:8px">💡 特别说明：${esc(day.note)}</div>` : ""}`
+      : `<div class="mg-empty">这一天不在 81 天计划（2026-10-25 ~ 2027-01-13）内，可用下方快捷护肤打勾。</div>`}
+      <div class="section-title" style="margin-top:16px">快捷护肤（7 项）</div>
+      <div class="mg-checklist">${(sd.quickSkin || []).map((s, i) => `<label class="mg-check-row"><input type="checkbox" data-qs="${i}" ${s.done ? "checked" : ""} /><span>${esc(s.name)}</span></label>`).join("")}</div>
+      <div class="section-title" style="margin-top:16px">当日皮肤反应</div>
+      <textarea id="sk-reaction" rows="3" placeholder="泛红？起痘？干燥？写一句……" style="width:100%;padding:10px;border:1.5px solid var(--line);border-radius:12px;line-height:1.7">${esc(reaction)}</textarea>
+      <button class="btn" id="sk-save" style="margin-top:10px">保存今日护肤打卡</button>
+      <div class="muted" style="margin-top:10px">连续打卡 ${skinStreak()} 天 · 累计完成率 ${skinDoneRate()}%</div>
+    </div>`;
+  } else if (skTab === "plan") {
+    body = `<div class="card"><div class="muted" style="margin-bottom:10px">81 天逐日计划（2026-10-25 ~ 2027-01-13），点某一天查看并打卡</div>
+      <div>${(sd.plan || []).map(d => {
+        const c = (sd.checks || {})[d.date] || {};
+        const keys = SK_CATS.map(x => x[0]).filter(k => d[k] && d[k] !== "—");
+        const dn = keys.filter(k => c[k]).length;
+        const mark = keys.length && dn === keys.length ? "✓" : dn ? "◐" : "○";
+        return `<div class="mg-check-row" data-skday="${d.date}" style="cursor:pointer"><span><b>${d.date}</b> <span class="muted">${esc(d.weekday)} · ${esc(d.phase)}</span></span><span class="muted">${d.mask && d.mask !== "—" ? "🎭 " + esc(d.mask.slice(0, 14)) : ""}</span><span>${mark} ${dn}/${keys.length}</span></div>`;
+      }).join("") || `<div class="mg-empty">计划尚未导入（首次启动后自动导入，见下方说明）</div>`}</div></div>`;
+  } else if (skTab === "inventory") {
+    body = `<div class="card">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <input id="sk-q" placeholder="搜索产品名 / 品牌……" style="flex:1;min-width:160px;padding:10px;border:1.5px solid var(--line);border-radius:12px" />
+        <select id="sk-kind" style="padding:10px;border:1.5px solid var(--line);border-radius:12px"><option value="all">全部</option><option value="mask">面膜</option><option value="skin">护肤品</option></select>
+        <button class="btn" id="sk-search">搜索</button>
+      </div>
+      <div id="sk-inv-results" class="muted">面膜 ${(sd.masks || []).length} 款 · 护肤品 ${(sd.items || []).length} 条，输入关键词搜索</div>
+    </div>`;
+  }
+  main.innerHTML = `
+    <div class="page-head">
+      <h2>🌸 护肤打卡</h2>
+      <span class="muted">81 天计划 · 连续 ${skinStreak()} 天</span>
+    </div>
+    <div class="mg-tabs">${tabs.map(t => `<button class="mg-tab ${skTab === t[0] ? "on" : ""}" data-sktab="${t[0]}">${t[1]}</button>`).join("")}</div>
+    ${body}`;
+  bindSkincareDailyPage(main);
+}
+function bindSkincareDailyPage(root) {
+  root.querySelectorAll("[data-sktab]").forEach(b => b.onclick = () => { skTab = b.dataset.sktab; renderSkincareDailyPage(); });
+  const prev = root.querySelector("#sk-prev"); if (prev) prev.onclick = () => { skDate = dateAddStr(skDate, -1); renderSkincareDailyPage(); };
+  const next = root.querySelector("#sk-next"); if (next) next.onclick = () => { skDate = dateAddStr(skDate, 1); renderSkincareDailyPage(); };
+  const dt = root.querySelector("#sk-date"); if (dt) dt.onchange = () => { skDate = dt.value; renderSkincareDailyPage(); };
+  const tod = root.querySelector("#sk-today"); if (tod) tod.onclick = () => { skDate = todayStr(); renderSkincareDailyPage(); };
+  root.querySelectorAll("[data-sk]").forEach(cb => cb.onchange = () => {
+    const sd = state.skincareDaily;
+    if (!sd.checks[skDate]) sd.checks[skDate] = {};
+    sd.checks[skDate][cb.dataset.sk] = cb.checked;
+    save(); renderSkincareDailyPage();
+  });
+  root.querySelectorAll("[data-qs]").forEach(cb => cb.onchange = () => {
+    const s = state.skincareDaily.quickSkin[Number(cb.dataset.qs)];
+    if (s) { s.done = cb.checked; save(); renderSkincareDailyPage(); }
+  });
+  const saveBtn = root.querySelector("#sk-save");
+  if (saveBtn) saveBtn.onclick = () => {
+    state.skincareDaily.reactions[skDate] = root.querySelector("#sk-reaction").value;
+    save(); toast("护肤打卡已保存 ✓"); renderSkincareDailyPage();
+  };
+  root.querySelectorAll("[data-skday]").forEach(row => row.onclick = () => { skDate = row.dataset.skday; skTab = "today"; renderSkincareDailyPage(); });
+  const search = root.querySelector("#sk-search");
+  if (search) search.onclick = () => {
+    const q = (root.querySelector("#sk-q").value || "").trim().toLowerCase();
+    const kind = root.querySelector("#sk-kind").value;
+    const sd = state.skincareDaily;
+    const masks = kind !== "skin" ? (sd.masks || []).filter(m => !q || (m.name + (m.category || "")).toLowerCase().includes(q)) : [];
+    const items = kind !== "mask" ? (sd.items || []).filter(i => !q || (i.brand + i.name + (i.type || "")).toLowerCase().includes(q)) : [];
+    const out = root.querySelector("#sk-inv-results");
+    out.classList.remove("muted");
+    out.innerHTML = `<div class="muted" style="margin-bottom:8px">面膜 ${masks.length} 款 · 护肤品 ${items.length} 条</div>` +
+      masks.map(m => `<div class="mg-check-row"><span><b>${esc(m.name)}</b> <span class="muted">${esc(m.category || "")} · ${esc(m.duration || "")} · ${esc(m.suggestion || "")}</span></span><span>余 ${m.remaining}/${m.count}</span></div>`).join("") +
+      items.map(i => `<div class="mg-check-row"><span><b>${esc(i.brand)} ${esc(i.name)}</b> <span class="muted">${esc(i.spec || "")} × ${i.count}${esc(i.unit || "")} · ${esc(i.area || "")}${i.expiry ? " · " + esc(i.expiry) : ""}</span></span><span class="muted">${esc(i.suggestion || i.status || "")}</span></div>`).join("") ||
+      `<div class="mg-empty">没有匹配结果</div>`;
+  };
+}
+
 /* ---------- 每日打卡页：整月日历 + 连续打卡 ---------- */
 let calYM = null;
 function renderCheckinPage() {
@@ -529,11 +625,12 @@ function renderCheckinPage() {
       </div>
       <div class="mg-cal-week"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
       <div class="mg-cal-grid">${cells.join("")}</div>
-      <div class="muted" style="margin-top:10px">点日期打勾/取消打卡；TOPIK 打卡在各自模块里记录</div>
+      <div class="muted" style="margin-top:10px">点日期打勾/取消打卡；今日护肤与 TOPIK 打卡在各自模块里记录</div>
     </div>
     <div class="mg-quick card">
       <button class="btn" data-quick="todo">去待办事项</button>
       <button class="btn" data-quick="topik">去 TOPIK 每日打卡</button>
+      <button class="btn" data-quick="skincareDaily">去护肤打卡</button>
     </div>`;
   rootBindCheckin(main);
 }
@@ -550,85 +647,3 @@ function rootBindCheckin(root) {
   });
   root.querySelectorAll("[data-quick]").forEach(b => b.onclick = () => switchTab(b.dataset.quick, b.dataset.quick === "topik" ? "daily" : null));
 }
-
-/* ---------- 每日护肤：routine 卡片打卡 + 记录 ---------- */
-function renderSkincareDailyPage() {
-  const main = document.getElementById("app-main"); if (!main) return;
-  const sd = state.skincareDaily || (state.skincareDaily = defaultSkincareDaily());
-  const today = todayStr();
-  const entry = sd.log[today] || (sd.log[today] = { done: [], note: "", photos: [] });
-  const total = sd.routines.length;
-  const doneCount = (entry.done || []).length;
-  const pct = total ? doneCount / total : 0;
-  main.innerHTML = `
-    <div class="page-head">
-      <button class="btn ghost" data-back>‹ 首页</button>
-      <h2 style="flex:1;text-align:center">🧴 每日护肤</h2>
-      <button class="btn" data-rec>📋 记录</button>
-    </div>
-    <div class="card" style="margin-bottom:14px">
-      <div class="muted">点卡片记录今天做了什么、传图、写下感受和看法。今日完成 <b>${doneCount}/${total}</b></div>
-      <div class="mg-rings" style="margin-top:12px;justify-content:flex-start">
-        ${ringSVG(pct, "#db2777", 64)}
-        <span class="muted">今日护肤进度</span>
-      </div>
-    </div>
-    <div class="sk-grid">
-      ${sd.routines.map(r => {
-        const on = (entry.done || []).includes(r.id);
-        return `<button class="sk-card ${on ? "on" : ""}" data-routine="${r.id}">
-          <span class="sk-ico">${r.icon}</span>
-          <span class="sk-label">${esc(r.label)}</span>
-          <span class="sk-check">${on ? "✓" : ""}</span>
-        </button>`;
-      }).join("")}
-    </div>
-    <button class="btn ghost" id="sk-add" style="margin-top:14px">+ 添加分类</button>`;
-  bindSkincareDaily(main);
-}
-function bindSkincareDaily(root) {
-  const sd = () => state.skincareDaily;
-  root.querySelector("[data-back]").onclick = () => switchTab("home");
-  root.querySelectorAll("[data-routine]").forEach(b => b.onclick = () => {
-    const s = sd();
-    const today = todayStr();
-    const entry = s.log[today] || (s.log[today] = { done: [], note: "", photos: [] });
-    if (!entry.done) entry.done = [];
-    const i = entry.done.indexOf(b.dataset.routine);
-    if (i >= 0) entry.done.splice(i, 1); else entry.done.push(b.dataset.routine);
-    save(); renderSkincareDailyPage();
-  });
-  const rec = root.querySelector("[data-rec]");
-  if (rec) rec.onclick = () => openSkincareRecord();
-  const add = root.querySelector("#sk-add");
-  if (add) add.onclick = () => {
-    const label = prompt("新护肤分类名称："); if (!label) return;
-    sd().routines.push({ id: uid(), icon: "✨", label: label.trim() });
-    save(); renderSkincareDailyPage();
-  };
-}
-function openSkincareRecord() {
-  const s = state.skincareDaily;
-  const today = todayStr();
-  const entry = s.log[today] || (s.log[today] = { done: [], note: "", photos: [] });
-  const root = document.getElementById("modal-root"); if (!root) return;
-  root.innerHTML = `<div class="modal-backdrop"><div class="modal" style="max-width:520px">
-    <div class="modal-head"><b>📋 今日护肤记录</b><button class="modal-x" data-close>×</button></div>
-    <div class="modal-body">
-      <div class="muted" style="margin-bottom:8px">${today} · 今日完成 ${((entry.done || []).length)} / ${(s.routines || []).length}</div>
-      <textarea id="sk-note" rows="6" placeholder="今天用了什么？皮肤状态、感受和看法……" style="width:100%;padding:10px;border:1.5px solid var(--line);border-radius:12px;line-height:1.7">${esc(entry.note || "")}</textarea>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" id="sk-save-note">保存</button>
-    </div></div></div>`;
-  root.querySelector("#sk-save-note").onclick = () => {
-    entry.note = root.querySelector("#sk-note").value;
-    save(); root.innerHTML = ""; renderSkincareDailyPage(); toast("已保存 ✓");
-  };
-  root.querySelector("[data-close]").onclick = () => { root.innerHTML = ""; };
-  root.querySelector(".modal-backdrop").onclick = (e) => { if (e.target.classList.contains("modal-backdrop")) root.innerHTML = ""; };
-}
-
-/* 自初始化：合并版脚本加载即激活，不依赖 app.js 内联钩子 */
-if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", ensureMerged);
-else ensureMerged();

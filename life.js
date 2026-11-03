@@ -86,7 +86,7 @@
     else lm_plannerGoals(v);
   }
   function lm_plannerToday(v) {
-    const list = state.planner.today;
+    const list = state.planner.today.filter(t => !t.date || t.date === lm_today());
     const total = list.length, done = list.filter(t => t.done).length;
     const pct = total ? Math.round(done / total * 100) : 0;
     const ordered = [...list].sort((a, b) => (a.done - b.done) || (b.prio - a.prio));
@@ -110,13 +110,13 @@
       ${allDone ? `<div class="lm-reward">${rewardedToday ? "🪙 今日金币已领取 +10" : `<button class="btn gold" id="p-reward">🎉 全部完成！领取金币 +10</button>`}</div>` : ""}`;
     $("#p-add", v).onclick = () => {
       const text = $("#p-text", v).value.trim(); if (!text) return lm_toast("请输入内容");
-      list.push({ id: lm_uid(), text, cat: $("#p-cat", v).value, prio: +$("#p-prio", v).value, done: false });
+      state.planner.today.push({ id: lm_uid(), text, cat: $("#p-cat", v).value, prio: +$("#p-prio", v).value, done: false, date: lm_today() });
       lm_save(); lm_planner(body_ref());
     };
     $("#p-text", v).addEventListener("keydown", e => { if (e.key === "Enter") $("#p-add", v).click(); });
     if ($("#p-reward", v)) $("#p-reward", v).onclick = () => { state.coins = (state.coins || 0) + 10; state.planner.rewardDate = lm_today(); lm_save(); lm_planner(body_ref()); lm_toast("🪙 +10 金币到账！"); };
-    $$(".lm-check", v).forEach(b => b.onclick = () => { const t = list.find(x => x.id === b.dataset.id); if (t) { t.done = !t.done; lm_save(); lm_planner(body_ref()); } });
-    $$(".lm-del", v).forEach(b => b.onclick = () => { const i = list.findIndex(x => x.id === b.dataset.id); if (i >= 0) { list.splice(i, 1); lm_save(); lm_planner(body_ref()); } });
+    $$(".lm-check", v).forEach(b => b.onclick = () => { const t = list.find(x => x.id === b.dataset.id); if (t) { VivianPlanning.setStatus(state,t.id,t.done?'todo':'done'); lm_save(); lm_planner(body_ref()); } });
+    $$(".lm-del", v).forEach(b => b.onclick = () => { if(state.dashboard?.activeFocus?.taskId === b.dataset.id) return lm_toast('请先结束该任务的专注计时'); state.planner.today = state.planner.today.filter(x => x.id !== b.dataset.id); lm_save(); lm_planner(body_ref()); });
   }
   function lm_plannerWeek(v) {
     const list = state.planner.week;
@@ -157,7 +157,7 @@
       $("#g-cancel", sheet).onclick = lm_closeModal;
       $("#g-ok", sheet).onclick = () => { const t = $("#g-title", sheet).value.trim(); if (!t) return; list.push({ id: lm_uid(), title: t, progress: 0 }); lm_save(); lm_closeModal(); lm_planner(body_ref()); };
     });
-    $$(".lm-range", v).forEach(r => r.oninput = () => { const g = list.find(x => x.id === r.dataset.id); if (g) { g.progress = +r.value; const bar = r.nextElementSibling; bar.firstElementChild.style.width = r.value + "%"; bar.querySelector("span").textContent = r.value + "%"; } });
+    $$(".lm-range", v).forEach(r => r.oninput = () => { const g = list.find(x => x.id === r.dataset.id); if (g) { g.progress = +r.value; if(g.target) g.current = Number((g.target * g.progress / 100).toFixed(4)); const bar = r.nextElementSibling; bar.firstElementChild.style.width = r.value + "%"; bar.querySelector("span").textContent = r.value + "%"; } });
     $$(".lm-range", v).forEach(r => r.onchange = () => lm_save());
     $$(".lm-del", v).forEach(b => b.onclick = () => { const i = list.findIndex(x => x.id === b.dataset.id); if (i >= 0) { list.splice(i, 1); lm_save(); lm_planner(body_ref()); } });
   }
@@ -245,7 +245,7 @@
       <div class="lm-list">${[...logs].reverse().slice(0, 30).map(l => `
         <div class="lm-task">
           <span class="lm-chip">${lm_esc(l.type)}</span>
-          <div class="lm-task-main"><div class="lm-task-text">${l.duration} 分钟${l.hr ? " · 心率 " + l.hr : ""}</div><div class="lm-task-meta"><span>${l.date}</span></div></div>
+          <div class="lm-task-main"><div class="lm-task-text">${l.duration == null ? "时长未填写" : l.duration + " 分钟"}${l.hr ? " · 心率 " + l.hr : ""}</div><div class="lm-task-meta"><span>${l.date}</span>${l.note ? `<span>${lm_esc(l.note)}</span>` : ""}</div></div>
           <button class="lm-del" data-id="${l.id}">🗑</button>
         </div>`).join("") || `<div class="empty">还没有运动记录</div>`}</div>`;
     $("#e-add", body).onclick = () => {
@@ -653,23 +653,6 @@
     state.inspo = state.inspo || { notes: [], materials: [], noteFilter: "" };
     state.habit = state.habit || { habits: [] };
     if (state.coins == null) state.coins = 0;
-    // 预填示例
-    if (!state.inspo.notes.length && !state.inspo._seeded) {
-      const now = new Date();
-      const t = (d) => new Date(now.getTime() - d * 86400000).toLocaleString("zh-CN", { hour12: false });
-      state.inspo.notes = [
-        { id: lm_uid(), text: "给读书账号做一个「女性成长书单」系列，连更 7 天。", tag: "创作", time: t(0), ds: lm_today() },
-        { id: lm_uid(), text: "通勤时听韩语播客，比刷视频效率高。", tag: "生活", time: t(1), ds: lm_dateAdd(lm_today(), -1) },
-        { id: lm_uid(), text: "周会材料提前一天准备，避免临时焦虑。", tag: "工作", time: t(2), ds: lm_dateAdd(lm_today(), -2) },
-        { id: lm_uid(), text: "八段锦放在早起后，比晚上更容易坚持。", tag: "生活", time: t(3), ds: lm_dateAdd(lm_today(), -3) },
-        { id: lm_uid(), text: "旅行 vlog 用「一天一座城」的叙事节奏。", tag: "创作", time: t(4), ds: lm_dateAdd(lm_today(), -4) }
-      ];
-      state.inspo.materials = [
-        { id: lm_uid(), cat: "文案", summary: "「普通女孩的复利日常」人设 slogan。", source: "小红书", link: "", time: t(1) },
-        { id: lm_uid(), cat: "视觉", summary: "粉白渐变 + 手写体的封面模板。", source: "自设计", link: "", time: t(2) },
-        { id: lm_uid(), cat: "观点", summary: "「稳定输出」比「单条爆款」更值钱。", source: "行业文章", link: "", time: t(3) }
-      ];
-      state.inspo._seeded = true; lm_save();
-    }
+    // Personal notes start empty. Imported records are preserved.
   }
 })();

@@ -1,6 +1,9 @@
 /* Vivian 工作台 Service Worker —— 联网优先，保证每次部署都拉最新文件（离线时回退缓存） */
-const CACHE = "vivian-v12";
-const CORE = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest", "./icon.svg"];
+/* MERGE: 缓存版本升级，加入合并版新文件 */
+const CACHE = "vivian-local-v7-planning";
+const CORE = ["./", "./index.html", "./styles.css", "./merge.css", "./daily.css", "./daily.js", "./local-sync.js", "./record-model.js", "./app.js", "./life.js", "./korean.js", "./merge.js", "./manifest.webmanifest", "./icon.svg", "./vendor/chart.umd.min.js"];
+CORE.push("./food.js", "./food.css", "./food-model.js", "./dashboard.js", "./dashboard.css", "./dashboard-model.js", "./jot.js", "./jot.css", "./jot-model.js");
+CORE.push("./planning.js", "./planning.css", "./planning-model.js");
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE)).then(() => self.skipWaiting()));

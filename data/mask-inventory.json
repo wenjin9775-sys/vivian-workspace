@@ -1,0 +1,445 @@
+{
+ "masks": [
+  {
+   "id": 1,
+   "name": "韩束 黄金蜂窝紧致抚纹面膜",
+   "category": "紧致护理",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "轮替可选"
+  },
+  {
+   "id": 2,
+   "name": "芙芙 FULFIL 保湿舒缓面膜",
+   "category": "舒缓修护",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 3,
+   "name": "BIOHEAL BOH 3D Lifting Cream Mask",
+   "category": "紧致护理",
+   "count": 5,
+   "remaining": 5,
+   "duration": "依包装说明",
+   "suggestion": "轮替可选"
+  },
+  {
+   "id": 4,
+   "name": "欧诗漫 珍珠维C澎弹高光面膜",
+   "category": "提亮护理",
+   "count": 2,
+   "remaining": 2,
+   "duration": "10–15分钟",
+   "suggestion": "稳定期低频"
+  },
+  {
+   "id": 5,
+   "name": "OLAY 烟酰胺水感光曜透白面膜",
+   "category": "提亮护理",
+   "count": 5,
+   "remaining": 5,
+   "duration": "10–15分钟",
+   "suggestion": "稳定期低频"
+  },
+  {
+   "id": 6,
+   "name": "肌侣 Skin Lane 升塑提拉面膜",
+   "category": "紧致护理",
+   "count": 1,
+   "remaining": 1,
+   "duration": "20–30分钟",
+   "suggestion": "轮替可选"
+  },
+  {
+   "id": 7,
+   "name": "欧莱雅 复颜玻尿酸水光充盈导入淡纹膨润面膜",
+   "category": "补水保湿",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 8,
+   "name": "Phoenix 凤凰图腾光感精粹油面膜",
+   "category": "滋润养护",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "暂缓厚重/香氛"
+  },
+  {
+   "id": 9,
+   "name": "安敏优 ARMIYO 青蒿舒缓特护面膜",
+   "category": "舒缓修护",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 10,
+   "name": "瑷科缦 AOXMED PDRN微珠精华＋玻尿酸面膜",
+   "category": "舒缓修护",
+   "count": 2,
+   "remaining": 2,
+   "duration": "10–15分钟",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 11,
+   "name": "YVES 琦秘水光面膜",
+   "category": "补水保湿",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 12,
+   "name": "珀莱雅 弹润饱满紧致滋养面膜",
+   "category": "紧致护理",
+   "count": 2,
+   "remaining": 2,
+   "duration": "10–15分钟",
+   "suggestion": "轮替可选"
+  },
+  {
+   "id": 13,
+   "name": "珀莱雅 肌源修护精华面膜",
+   "category": "舒缓修护",
+   "count": 2,
+   "remaining": 2,
+   "duration": "10–15分钟",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 14,
+   "name": "珀莱雅 双抗焕白净亮面膜",
+   "category": "提亮护理",
+   "count": 2,
+   "remaining": 2,
+   "duration": "10–15分钟",
+   "suggestion": "稳定期低频"
+  },
+  {
+   "id": 15,
+   "name": "FAN BEAUTY DIARY 海葡萄凝水保湿面膜",
+   "category": "补水保湿",
+   "count": 2,
+   "remaining": 2,
+   "duration": "10–15分钟",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 16,
+   "name": "欧莱雅 复颜玻尿酸水光充盈多效修护安瓶鲜注面膜",
+   "category": "补水保湿",
+   "count": 2,
+   "remaining": 2,
+   "duration": "依包装说明",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 17,
+   "name": "欧莱雅 青春密码酵素肌底精华鲜注面膜",
+   "category": "提亮护理",
+   "count": 2,
+   "remaining": 2,
+   "duration": "依包装说明",
+   "suggestion": "稳定期低频"
+  },
+  {
+   "id": 18,
+   "name": "FAN BEAUTY DIARY 黑云杉水光莹润睡美人面膜",
+   "category": "补水保湿",
+   "count": 2,
+   "remaining": 2,
+   "duration": "10–15分钟",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 19,
+   "name": "阿芙 次抛花焕采莹亮紧致眼膜",
+   "category": "眼膜",
+   "count": 2,
+   "remaining": 2,
+   "duration": "依包装说明",
+   "suggestion": "眼周可选"
+  },
+  {
+   "id": 20,
+   "name": "阿芙 玫瑰水润透亮面膜",
+   "category": "滋润养护",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "暂缓厚重/香氛"
+  },
+  {
+   "id": 21,
+   "name": "韩国 Collagen 胶原蛋白精华面膜",
+   "category": "滋润养护",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "轮替可选"
+  },
+  {
+   "id": 22,
+   "name": "韩国 Cucumber 黄瓜精华面膜",
+   "category": "补水保湿",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 23,
+   "name": "Abib 鱼腥草弱酸性面膜 Heartleaf Fit",
+   "category": "舒缓修护",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 24,
+   "name": "Abib 复活草弱酸性面膜 Jericho Rose Fit",
+   "category": "补水保湿",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 25,
+   "name": "MEDIPEEL 积雪草胶原舒缓面膜（绿）",
+   "category": "舒缓修护",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 26,
+   "name": "MEDIPEEL 乳酸菌胶原毛孔紧致面膜（红）",
+   "category": "紧致护理",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "轮替可选"
+  },
+  {
+   "id": 27,
+   "name": "MEDIPEEL Mooltox 胶原水光保湿面膜（蓝）",
+   "category": "补水保湿",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 28,
+   "name": "MEDIPEEL 维生素胶原焕亮面膜（黄）",
+   "category": "提亮护理",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "稳定期低频"
+  },
+  {
+   "id": 29,
+   "name": "凡士林 Vaseline 胶原紧致面膜（粉）",
+   "category": "紧致护理",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "暂缓厚重/香氛"
+  },
+  {
+   "id": 30,
+   "name": "凡士林 Vaseline 神经酰胺保湿面膜（蓝）",
+   "category": "补水保湿",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 31,
+   "name": "凡士林 Vaseline 积雪草苷滋养面膜（棕）",
+   "category": "滋润养护",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "暂缓厚重/香氛"
+  },
+  {
+   "id": 32,
+   "name": "FAN BEAUTY DIARY 银耳秋葵鲜肌润养面膜",
+   "category": "补水保湿",
+   "count": 2,
+   "remaining": 2,
+   "duration": "10–15分钟",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 33,
+   "name": "欧莱雅 复颜原型维C面膜",
+   "category": "提亮护理",
+   "count": 1,
+   "remaining": 1,
+   "duration": "依包装说明",
+   "suggestion": "后期试用"
+  },
+  {
+   "id": 34,
+   "name": "达肤妍 Dr.DH 09 舒缓修护面膜",
+   "category": "舒缓修护",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 35,
+   "name": "达肤妍 Dr.DH 05+ 海葡萄盈润水光面膜",
+   "category": "补水保湿",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 36,
+   "name": "FAN BEAUTY DIARY 麒麟竭菌菇丝发酵修护面膜",
+   "category": "舒缓修护",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 37,
+   "name": "FAN BEAUTY DIARY 莹白晶透粉润美肌面膜",
+   "category": "提亮护理",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "稳定期低频"
+  },
+  {
+   "id": 38,
+   "name": "FAN BEAUTY DIARY 虾青素黑咖双抗冰塑早安面膜",
+   "category": "提亮护理",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "稳定期低频"
+  },
+  {
+   "id": 39,
+   "name": "FAN BEAUTY DIARY 密罗木青春沁安凝乳面膜",
+   "category": "舒缓修护",
+   "count": 1,
+   "remaining": 1,
+   "duration": "10–15分钟",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 40,
+   "name": "FAN BEAUTY DIARY 碳酸瓷娃娃焕肤面膜",
+   "category": "特殊护理",
+   "count": 1,
+   "remaining": 1,
+   "duration": "依包装说明",
+   "suggestion": "暂缓复杂操作"
+  },
+  {
+   "id": 41,
+   "name": "FAN BEAUTY DIARY 油橄榄藻萃润泽水油面膜组合",
+   "category": "滋润养护",
+   "count": 1,
+   "remaining": 1,
+   "duration": "依包装说明",
+   "suggestion": "暂缓厚重/香氛"
+  },
+  {
+   "id": 42,
+   "name": "FAN BEAUTY DIARY 瓷透光感淡斑美白双效面膜",
+   "category": "提亮护理",
+   "count": 1,
+   "remaining": 1,
+   "duration": "依包装说明",
+   "suggestion": "暂缓复杂操作"
+  },
+  {
+   "id": 43,
+   "name": "FAN BEAUTY DIARY 灵芝白松露琥珀蜜润淡纹油膏面膜",
+   "category": "滋润养护",
+   "count": 1,
+   "remaining": 1,
+   "duration": "依包装说明",
+   "suggestion": "暂缓厚重/香氛"
+  },
+  {
+   "id": 44,
+   "name": "FAN BEAUTY DIARY 芍药粉光凝时眼膜",
+   "category": "眼膜",
+   "count": 1,
+   "remaining": 1,
+   "duration": "依包装说明",
+   "suggestion": "眼周可选"
+  },
+  {
+   "id": 45,
+   "name": "医美皇后 YI MEI HUANG HO 皮肤屏障修复敷料（医用敷料）",
+   "category": "舒缓修护",
+   "count": 4,
+   "remaining": 4,
+   "duration": "20分钟",
+   "suggestion": "仅遵医嘱/按说明"
+  },
+  {
+   "id": 46,
+   "name": "DERMAFIX 蒂玛飞思 CICACOLLAGEN 舒缓面膜（上下分体胶原膜）",
+   "category": "舒缓修护",
+   "count": 1,
+   "remaining": 1,
+   "duration": "20–40分钟（至变透明）",
+   "suggestion": "优先候选"
+  },
+  {
+   "id": 47,
+   "name": "可复美 医用透明质酸钠修复贴（医用敷料）",
+   "category": "舒缓修护",
+   "count": 1,
+   "remaining": 1,
+   "duration": "20–30分钟",
+   "suggestion": "仅遵医嘱/按说明"
+  },
+  {
+   "id": 48,
+   "name": "MEDIHEAL 美迪惠尔 Derma Modeling Pack 玻尿酸软膜套装",
+   "category": "补水保湿",
+   "count": 1,
+   "remaining": 1,
+   "duration": "约15分钟（凝固后揭下）",
+   "suggestion": "暂缓复杂操作"
+  },
+  {
+   "id": 49,
+   "name": "L'ORÉAL 欧莱雅 复颜玻尿酸水光充盈安瓶鲜注面膜",
+   "category": "补水保湿",
+   "count": 1,
+   "remaining": 1,
+   "duration": "依包装说明",
+   "suggestion": "优先候选"
+  }
+ ]
+}
