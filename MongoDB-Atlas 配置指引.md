@@ -1,6 +1,15 @@
-# 让工作台数据真正持久（MongoDB Atlas + Render）
+# MongoDB Atlas + Render 持久化（配置备查）
 
-## 为什么要做
+> ✅ **当前状态：已于 2026-07-26 配置完成，无需重复操作。**
+> 当时已建好 MongoDB Atlas 免费 M0 集群、在 Render 后台填好 `MONGODB_URI`，
+> 并验证「register / login / PUT state / GET state 全部正常，MongoDB 持久化生效」。
+> 本文档**仅供**日后更换数据库、重建服务或排查连接问题时参考。
+>
+> 如果只是想确认现在有没有连上：Render 控制台 → 服务 `vivian-workspace` →
+> **Environment** 里看 `MONGODB_URI` 这个 Key 是否还在；或到 Atlas →
+> 数据库 `vivian` → `states` 集合，看有没有文档。
+
+## 背景：当初为什么要做
 
 Render 免费档不配数据库时，数据写在**临时磁盘**上。服务一重启、一重新部署，数据就没了——
 手机 / 电脑 / iPad 三端同步也就无从谈起。
