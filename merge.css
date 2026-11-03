@@ -18,6 +18,20 @@
   .sb-brand{ width:40px !important; height:40px !important; font-size:19px !important; }
 }
 
+/* ---------- 平板（iPad 竖屏 768/820/834px）：别挤成手机窄栏，放宽并恢复侧边栏文字 ---------- */
+@media (min-width:600px) and (max-width:899px){
+  #app{ max-width:760px; }
+  .app-sidebar{ width:190px; }
+  .sb-label,.sb-group-title,.sb-sync,.sb-footer{ display:block !important; }
+  .sb-dday{ display:flex !important; }
+  .sb-item{
+    width:calc(100% - 20px) !important; margin:2px 10px !important;
+    justify-content:flex-start !important; padding:10px 12px !important;
+  }
+  .sb-brand{ width:44px !important; height:44px !important; font-size:22px !important; }
+  .stat-grid{ grid-template-columns:repeat(3,1fr); }
+}
+
 /* ---------- 黑色分组侧边栏 ---------- */
 .app-sidebar{
   background:#101114;
