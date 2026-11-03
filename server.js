@@ -240,6 +240,65 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" }); return res.end(d);
       }
 
+      /* ---- local-sync 协议兼容层：GPT 版前端走 /api/local/*，云端同样支持 ----
+         带 Bearer token 时写入该账号，未登录时写入默认 local 命名空间。
+         修订号 __revision 存在状态对象里，天然兼容文件存储与 MongoDB。 */
+      const localUser = async () => (await authUser(req)) || "local";
+
+      if (p === "/api/local/health") return send(res, 200, { ok: true });
+
+      if (p === "/api/local/state" && req.method === "GET") {
+        const un = await localUser();
+        const st = (await loadState(un)) || {};
+        return send(res, 200, { revision: Number(st.__revision) || 0, state: st });
+      }
+
+      if (p === "/api/local/state" && req.method === "PUT") {
+        const un = await localUser();
+        const cur = (await loadState(un)) || {};
+        const curRev = Number(cur.__revision) || 0;
+        const inRev = Number(json.revision) || 0;
+        if (inRev !== curRev) return send(res, 409, { error: "记录已被其他设备更新" });
+        const next = Object.assign({}, json.state || {}, { __revision: curRev + 1 });
+        await saveState(un, next);
+        return send(res, 200, { revision: next.__revision });
+      }
+
+      if (p === "/api/local/image" && req.method === "POST") {
+        const un = await localUser();
+        const id = json.id, data = json.data;
+        if (!safeId(id) || typeof data !== "string") return send(res, 400, { error: "invalid" });
+        await saveImage(un, id, data);
+        return send(res, 200, { ok: true });
+      }
+
+      const lm = p.match(/^\/api\/local\/image\/(.+)$/);
+      if (lm && req.method === "GET") {
+        const un = await localUser();
+        const id = lm[1]; if (!safeId(id)) return send(res, 400, { error: "invalid" });
+        const d = await loadImage(un, id);
+        if (d == null) { res.writeHead(404); return res.end("not found"); }
+        res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" }); return res.end(d);
+      }
+
+      if (p === "/api/local/export" && req.method === "GET") {
+        const un = await localUser();
+        const st = (await loadState(un)) || {};
+        res.writeHead(200, {
+          "Content-Type": "application/json; charset=utf-8",
+          "Content-Disposition": 'attachment; filename="vivian-state.json"'
+        });
+        return res.end(JSON.stringify(st, null, 2));
+      }
+
+      /* 识图服务（OpenAI 密钥）按设计只存在本地电脑；云端返回未配置，避免页面抛错 */
+      if (p === "/api/local/food-ai/config" && req.method === "GET") {
+        return send(res, 200, { configured: false, canConfigure: false, model: "云端未启用", attemptsToday: 0, dailyLimit: 0 });
+      }
+      if (p === "/api/local/food-ai/config" && req.method === "PUT") {
+        return send(res, 400, { error: "识图服务仅在本地电脑版工作台提供" });
+      }
+
       return send(res, 404, { error: "not found" });
     } catch (e) {
       return send(res, 500, { error: String((e && e.message) || e) });

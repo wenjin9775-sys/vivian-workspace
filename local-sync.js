@@ -31,8 +31,14 @@
       notice.append(button);
     }
   }
+  /* 带上登录令牌，云端部署时读写的是自己账号的数据（未登录则落到默认空间） */
+  function authHeaders(extra) {
+    const headers = Object.assign({}, extra);
+    try { const t = localStorage.getItem("vivian_token"); if (t) headers["Authorization"] = "Bearer " + t; } catch (_) {}
+    return headers;
+  }
   async function request(url, options = {}) {
-    const response = await fetch(url, { cache: "no-store", ...options });
+    const response = await fetch(url, { cache: "no-store", ...options, headers: authHeaders(options.headers) });
     let result = {}; try { result = await response.json(); } catch (_) {}
     if (!response.ok) { const e = new Error(result.error || "保存失败"); e.status = response.status; throw e; }
     return result;
@@ -137,7 +143,7 @@
     } catch (e) { toast("图片只保存在浏览器，文件保存失败，请重试上传"); }
   }
   async function getImage(id) {
-    try { const r = await fetch("/api/local/image/" + encodeURIComponent(id)); return r.ok ? await r.text() : null; } catch (_) { return null; }
+    try { const r = await fetch("/api/local/image/" + encodeURIComponent(id), { headers: authHeaders() }); return r.ok ? await r.text() : null; } catch (_) { return null; }
   }
   document.addEventListener("input", () => { editing = true; });
   document.addEventListener("click", e => { if (e.target.closest(".sb-item")) editing = false; });

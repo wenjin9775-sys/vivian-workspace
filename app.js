@@ -2398,7 +2398,11 @@ function registerSW() {
 
 async function init() {
   try {
-    if (window.localSync) await localSync.initialize();
+    if (window.localSync) {
+      /* 同步层失败不能拖垮整个应用：退回浏览器本地数据继续渲染 */
+      try { await localSync.initialize(); }
+      catch (e) { console.warn("本地同步初始化失败，改用浏览器本地数据", e); }
+    }
     try { await idb.open(); } catch (e) { console.warn("IndexedDB 不可用，图片功能将受限", e); }
     if (authToken && !window.localSync) {
       try {
